@@ -38,8 +38,8 @@ fix_openhands_volumes() {
   local project="${2:-deploy}"
   for vol in "${project}_openhands-state" "${project}_openhands-workspace"; do
     if docker volume inspect "$vol" >/dev/null 2>&1; then
-      echo "==> chown $uid:$uid on volume $vol"
-      docker run --rm -v "${vol}:/data" alpine sh -c "chown -R ${uid}:${uid} /data && chmod -R u+rwX /data"
+      echo "==> chown ${uid}:${uid} on volume $vol"
+      docker run --rm -v "${vol}:/data" alpine:3.21 sh -c "mkdir -p /data && chown -R ${uid}:${uid} /data && chmod -R u+rwX /data"
     fi
   done
 }

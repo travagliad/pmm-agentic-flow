@@ -26,6 +26,25 @@ services:
       retries: 10
       start_period: 90s
 
+  openhands-init:
+    image: alpine:3.21
+    container_name: loop-openhands-init
+    user: "0:0"
+    environment:
+      OPENHANDS_UID: ${OPENHANDS_SANDBOX_USER_ID:-1000}
+    volumes:
+      - openhands-state:/state
+      - openhands-workspace:/workspace
+    command:
+      - sh
+      - -ec
+      - |
+        mkdir -p /state /workspace
+        chown -R "$${OPENHANDS_UID}:$${OPENHANDS_UID}" /state /workspace
+        chmod -R u+rwX /state /workspace
+        echo "openhands volumes owned by uid $${OPENHANDS_UID}"
+    restart: "no"
+
   openhands:
     image: ghcr.io/all-hands-ai/openhands:${OPENHANDS_VERSION:-0.39.0}
     container_name: loop-openhands
@@ -33,6 +52,8 @@ services:
     stdin_open: true
     tty: true
     depends_on:
+      openhands-init:
+        condition: service_completed_successfully
       litellm:
         condition: service_started
     environment:

@@ -9,7 +9,7 @@ PROJECT="${2:-deploy}"
 for vol in "${PROJECT}_openhands-state" "${PROJECT}_openhands-workspace"; do
   if docker volume inspect "$vol" >/dev/null 2>&1; then
     echo "chown ${UID_NUM}:${UID_NUM} on $vol"
-    docker run --rm -v "${vol}:/data" alpine sh -c "chown -R ${UID_NUM}:${UID_NUM} /data && chmod -R u+rwX /data"
+    docker run --rm -v "${vol}:/data" alpine:3.21 sh -c "mkdir -p /data && chown -R ${UID_NUM}:${UID_NUM} /data && chmod -R u+rwX /data"
   else
     echo "skip (missing): $vol"
   fi
