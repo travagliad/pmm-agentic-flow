@@ -1,0 +1,38 @@
+jira:
+  project_key: PMM
+  statuses:
+    ready_for_refinement: "Ready for Refinement"
+    ready_for_work: "Ready for Work"
+    in_progress: "In Progress"
+    in_review: "In Review"
+    in_qa: "In QA"
+    ready_for_merge: "Ready for Merge"
+  comments:
+    spec_pr: "OpenSpec draft PR: {url}"
+    dev_pr: "Development PR: {url}"
+    qa_pr: "QA automation PR: {url}"
+    test_instance: "PMM test instance: {url}"
+    ssh_access: "SSH access: {url}"
+    conversation: "Agent conversation: {url}"
+    access_bundle: |
+      Sandbox access ({reason}):
+      {links}
+
+commands:
+  ready_for_refinement: "/opsx:propose {ticketKey}"
+  in_progress: "/opsx:apply"
+  in_qa: "/loop:qa"
+  ready_for_merge: "/loop:finalize"
+  on_merge: "/opsx:archive"
+
+access_links:
+  post_on_in_progress: true
+  refresh_on_in_review: true
+  include_ssh: true
+
+openspec:
+  explore:
+    enabled: true
+    automated: false
+  archive:
+    automated_on_merge: true

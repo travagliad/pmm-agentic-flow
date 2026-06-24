@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+node_modules/
+dist/
+*.log
+.Dockerfile.local
+state/
+workspace/
+data/
+.secrets/

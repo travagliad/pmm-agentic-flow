@@ -1,0 +1,83 @@
+dev:
+  repository: percona/pmm
+  clone_url: https://github.com/percona/pmm.git
+  default_branch: main
+  build_command: make build
+  alt_repositories:
+    - name: grafana
+      repository: percona/grafana
+      clone_url: https://github.com/percona/grafana.git
+
+qa:
+  repository: percona/pmm-qa
+  clone_url: https://github.com/percona/pmm-qa.git
+  default_branch: main
+  editable_paths:
+    - e2e_tests/
+    - cli/
+    - qa-integration/
+  legacy_paths_readonly:
+    - codeceptjs-e2e/
+  default_suite: e2e_tests
+  suites:
+    e2e_tests:
+      runner: npx playwright test --config=e2e_tests/playwright.config.ts
+      workflow: runner-e2e-tests-playwright.yml
+    cli:
+      runner: npx playwright test --config=cli/playwright.config.ts
+      workflow: runner-integration-cli-tests.yml
+
+environment:
+  default_mode: pmm-framework
+  pmm_framework:
+    script: qa-integration/pmm-framework.py
+    network: pmm-qa
+    docs:
+      - qa-integration/pmm_qa/README.md
+      - qa-integration/pmm_qa/scripts/database_options.py
+
+build_artifacts:
+  submodules_repo: Percona-Lab/pmm-submodules
+  resolve_from: jnkpercona_comment
+
+openspec:
+  repository: percona/pmm
+  changes_dir: openspec/changes
+  require_spec_approval: true
+
+agents:
+  loop_controller: agents/microagents/loop-controller.md
+  dev:
+    microagent: agents/microagents/dev-agent.md
+    max_iterations: 80
+  qa:
+    microagent: agents/microagents/qa-agent.md
+    max_iterations: 40
+
+lifecycle:
+  trigger: both
+  phases:
+    - ready_for_refinement
+    - ready_for_work
+    - in_progress
+    - in_review
+    - in_qa
+    - ready_for_merge
+
+sandbox:
+  ttl_hours: 72
+  keep_warm_until: ready_for_merge
+  setup_script: sandbox/setup-pmm-workspace.sh
+  workspace_layout:
+    - path: /workspace/pmm
+      repo: percona/pmm
+    - path: /workspace/pmm-qa
+      repo: percona/pmm-qa
+  expose:
+    - vscode
+    - ssh
+    - preview
+
+metrics:
+  enabled: true
+  log_dir: /var/log/pmm-agentic-flow

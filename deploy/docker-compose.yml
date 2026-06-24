@@ -1,0 +1,116 @@
+services:
+  litellm:
+    image: ghcr.io/berriai/litellm:main-v1.72.0-stable
+    container_name: loop-litellm
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      GITHUB_COPILOT_TOKEN: ${GITHUB_COPILOT_TOKEN}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      COPILOT_EDITOR_VERSION: ${COPILOT_EDITOR_VERSION:-vscode/1.96.0}
+      COPILOT_INTEGRATION_ID: ${COPILOT_INTEGRATION_ID:-vscode-chat}
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health/liveliness"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  openhands:
+    image: ghcr.io/all-hands-ai/openhands:${OPENHANDS_VERSION}
+    container_name: loop-openhands
+    restart: unless-stopped
+    depends_on:
+      litellm:
+        condition: service_healthy
+    environment:
+      LLM_MODEL: litellm_proxy/${LITELLM_MODEL}
+      LLM_BASE_URL: http://litellm:4000
+      LLM_API_KEY: ${LITELLM_MASTER_KEY}
+      LLM_EXTRA_HEADERS: '{"editor-version":"${COPILOT_EDITOR_VERSION}","Copilot-Integration-Id":"${COPILOT_INTEGRATION_ID}"}'
+      SANDBOX_RUNTIME_CONTAINER_IMAGE: ghcr.io/all-hands-ai/runtime:${OPENHANDS_VERSION}-nikolaik
+      SANDBOX_USER_ID: ${OPENHANDS_SANDBOX_USER_ID}
+      LOG_ALL_EVENTS: "true"
+      OH_PERSISTENCE_DIR: /app/state
+      WORKSPACE_MOUNT_PATH: /opt/workspace_base
+      SANDBOX_ENABLE_AUTO_LINT: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - openhands-state:/app/state
+      - openhands-workspace:/opt/workspace_base
+      - ../agents/microagents:/app/microagents/custom:ro
+      - ../sandbox:/opt/pmm-agentic-flow/sandbox:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 12G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 45s
+      timeout: 10s
+      retries: 5
+
+  orchestrator:
+    build:
+      context: ../orchestrator
+    container_name: loop-orchestrator
+    restart: unless-stopped
+    depends_on:
+      openhands:
+        condition: service_healthy
+    environment:
+      ORCHESTRATOR_PORT: ${ORCHESTRATOR_PORT:-8080}
+      ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY}
+      OPENHANDS_BASE_URL: http://openhands:3000
+      OPENHANDS_PUBLIC_URL: https://${LOOP_DOMAIN}
+      OPENHANDS_API_KEY: ${OPENHANDS_API_KEY}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      SANDBOX_TTL_HOURS: ${SANDBOX_TTL_HOURS:-72}
+      MAX_AGENT_RETRIES: ${MAX_AGENT_RETRIES:-2}
+      MAX_BUILD_RETRIES: ${MAX_BUILD_RETRIES:-5}
+      LOOP_CONFIG_PATH: /config/loop.yaml
+      JIRA_WORKFLOW_PATH: /config/jira-workflow.yaml
+      DATA_DIR: /data
+      JIRA_BASE_URL: ${JIRA_BASE_URL:-}
+      JIRA_EMAIL: ${JIRA_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      JIRA_WEBHOOK_SECRET: ${JIRA_WEBHOOK_SECRET:-}
+    volumes:
+      - ../config/loop.yaml:/config/loop.yaml:ro
+      - ../config/jira-workflow.yaml:/config/jira-workflow.yaml:ro
+      - loop-data:/data
+    ports:
+      - "127.0.0.1:${ORCHESTRATOR_PORT:-8080}:8080"
+
+  caddy:
+    image: caddy:2.9-alpine
+    container_name: loop-caddy
+    restart: unless-stopped
+    depends_on:
+      - openhands
+      - orchestrator
+    environment:
+      LOOP_DOMAIN: ${LOOP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  openhands-state:
+  openhands-workspace:
+  loop-data:
+  caddy-data:
+  caddy-config:

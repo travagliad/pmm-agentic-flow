@@ -1,0 +1,16 @@
+{
+  email {$ACME_EMAIL}
+}
+
+{$LOOP_DOMAIN} {
+  encode gzip
+
+  @api path /api/* /hooks/* /health
+  handle @api {
+    reverse_proxy orchestrator:8080
+  }
+
+  handle {
+    reverse_proxy openhands:3000
+  }
+}

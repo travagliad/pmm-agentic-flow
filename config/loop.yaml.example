@@ -1,0 +1,50 @@
+# Copy to config/loop.yaml and adjust for your environment.
+
+target:
+  repository: percona/pmm
+  clone_url: https://github.com/percona/pmm.git
+  default_branch: main
+  # Paths the QA agent may write; everything else is Dev-only.
+  qa_paths:
+    - e2e/
+    - tests/e2e/
+    - playwright/
+  # Playwright test command inside the sandbox (repo-specific)
+  playwright:
+    install: npm ci && npx playwright install --with-deps chromium
+    test: npx playwright test
+    report_dir: playwright-report
+
+agents:
+  dev:
+    microagent: agents/microagents/dev-agent.md
+    max_iterations: 80
+  qa:
+    microagent: agents/microagents/qa-agent.md
+    max_iterations: 40
+
+openspec:
+  changes_dir: openspec/changes
+  # Human gate: do not start Dev until proposal.md exists and is approved.
+  require_spec_approval: true
+
+lifecycle:
+  # Manual trigger only until Jira admin grants webhook access.
+  trigger: manual
+  phases:
+    - spec_review
+    - dev_build
+    - qa_verify
+    - pr_ready
+    - sandbox_warm
+
+sandbox:
+  ttl_hours: 24
+  keep_warm_after_pr: true
+  expose:
+    - vscode
+    - preview
+
+metrics:
+  enabled: true
+  log_dir: /var/log/pmm-agentic-flow
