@@ -50,6 +50,7 @@ resource "linode_firewall" "loop" {
     protocol = "TCP"
     ports    = "22"
     ipv4     = var.admin_cidrs
+    ipv6     = var.admin_cidrs_v6
   }
 
   inbound {

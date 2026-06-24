@@ -20,6 +20,8 @@ If you already did: [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md#if-you-a
 
 ## Ready to test? Start here
 
+**[docs/tokens-and-secrets.md](./docs/tokens-and-secrets.md)** — **token links + fill terraform.tfvars (no domain OK)**
+
 **[docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md)** — checklist from zero to first ticket.
 
 **[docs/deploy-linode.md](./docs/deploy-linode.md)** — Terraform + DNS details.

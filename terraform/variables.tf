@@ -37,7 +37,13 @@ variable "acme_email" {
 variable "admin_cidrs" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
-  description = "Restrict SSH in production to your IP."
+  description = "IPv4 sources allowed to SSH (port 22). Use 0.0.0.0/0 for POC."
+}
+
+variable "admin_cidrs_v6" {
+  type        = list(string)
+  default     = ["::/0"]
+  description = "IPv6 sources allowed to SSH. Use your-ip/128 or ::/0 for POC."
 }
 
 variable "tags" {

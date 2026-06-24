@@ -41,7 +41,7 @@ docker rm pmm-server   # optional
 - [ ] **GitHub:** push `pmm-agentic-flow` to a repo you control  
   Example: `https://github.com/travagliad/pmm-agentic-flow.git`
 - [ ] **Linode:** account + [API token](https://cloud.linode.com/profile/tokens) (read/write Linodes + Firewalls)
-- [ ] **Domain:** subdomain for the loop, e.g. `loop.yourdomain.com` (DNS access)
+- [ ] **Domain:** subdomain OR use free [sslip.io](https://sslip.io) — see [tokens-and-secrets.md](./tokens-and-secrets.md#no-custom-domain)
 - [ ] **Secrets:** GitHub PAT (`repo`), Copilot/LiteLLM token, random keys for `litellm_master_key`, `openhands_api_key`, `orchestrator_api_key`
 - [ ] **Terraform** installed on PC: [terraform.io/downloads](https://developer.hashicorp.com/terraform/install)
 
@@ -151,9 +151,28 @@ Or open OpenHands in the browser and type:
 
 | Problem | Fix |
 |---------|-----|
-| cloud-init failed | `ssh root@IP` → `cat /var/log/pmm-agentic-flow-bootstrap.log` |
-| clone failed | `bootstrap_repo_url` must be a **public** repo or use token in URL |
-| TLS not working | DNS not pointing to Linode yet; wait or check A record |
-| litellm unhealthy | Check `GITHUB_COPILOT_TOKEN` in `/opt/pmm-agentic-flow/src/.env` on Linode |
+| `bootstrap.sslip.io` does not open | Wrong hostname — use `https://139-162-150-187.sslip.io` (your IP with dashes) |
+| Connection refused on 80/443 | Stack not running — SSH in and run recovery (below) |
+| cloud-init failed | `ssh root@IP` → `tail -100 /var/log/pmm-agentic-flow-bootstrap.log` |
+| litellm unhealthy | Check `GITHUB_COPILOT_TOKEN` in `/etc/pmm-agentic-flow/env` |
+
+### Recovery on the Linode (SSH)
+
+```bash
+ssh root@139.162.150.187
+tail -100 /var/log/pmm-agentic-flow-bootstrap.log
+bash /opt/pmm-agentic-flow/src/scripts/linode-recover.sh
+# or if repo missing:
+git clone https://github.com/travagliad/pmm-agentic-flow.git /opt/pmm-agentic-flow/src
+cp /etc/pmm-agentic-flow/env /opt/pmm-agentic-flow/src/.env
+# edit LOOP_DOMAIN to 139-162-150-187.sslip.io
+cd /opt/pmm-agentic-flow/src/deploy && docker compose --env-file ../.env up -d --build
+```
+
+Correct URL for IP `139.162.150.187`:
+
+```text
+https://139-162-150-187.sslip.io/
+```
 
 See also: [deploy-linode.md](./deploy-linode.md)
