@@ -36,6 +36,9 @@ fi
 echo "==> Starting stack..."
 cd "$DEST/deploy"
 docker compose --env-file "$DEST/.env" pull
+# Pre-pull agent-server image (first OpenHands V1 boot can take several minutes)
+OH_VER="$(grep -E '^OPENHANDS_VERSION=' "$DEST/.env" | cut -d= -f2- || echo 1.7)"
+docker pull "ghcr.io/openhands/agent-server:${OH_VER}-python" || true
 docker compose --env-file "$DEST/.env" up -d --build
 
 echo ""

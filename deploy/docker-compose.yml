@@ -30,6 +30,8 @@ services:
     image: ghcr.io/all-hands-ai/openhands:${OPENHANDS_VERSION}
     container_name: loop-openhands
     restart: unless-stopped
+    stdin_open: true
+    tty: true
     depends_on:
       litellm:
         condition: service_started
@@ -38,15 +40,18 @@ services:
       LLM_BASE_URL: http://litellm:4000
       LLM_API_KEY: ${LITELLM_MASTER_KEY}
       LLM_EXTRA_HEADERS: '{"editor-version":"${COPILOT_EDITOR_VERSION}","Copilot-Integration-Id":"${COPILOT_INTEGRATION_ID}"}'
-      SANDBOX_RUNTIME_CONTAINER_IMAGE: ghcr.io/all-hands-ai/runtime:${OPENHANDS_VERSION}-nikolaik
+      AGENT_SERVER_IMAGE_REPOSITORY: ${AGENT_SERVER_IMAGE_REPOSITORY:-ghcr.io/openhands/agent-server}
+      AGENT_SERVER_IMAGE_TAG: ${AGENT_SERVER_IMAGE_TAG:-${OPENHANDS_VERSION}-python}
       SANDBOX_USER_ID: ${OPENHANDS_SANDBOX_USER_ID}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
       LOG_ALL_EVENTS: "true"
-      OH_PERSISTENCE_DIR: /app/state
+      OH_WEB_URL: https://${LOOP_DOMAIN}
+      SANDBOX_CONTAINER_URL_PATTERN: https://${LOOP_DOMAIN}/runtime/{port}
       WORKSPACE_MOUNT_PATH: /opt/workspace_base
       SANDBOX_ENABLE_AUTO_LINT: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - openhands-state:/app/state
+      - openhands-state:/.openhands
       - openhands-workspace:/opt/workspace_base
       - ../agents/microagents:/app/microagents/custom:ro
       - ../sandbox:/opt/pmm-agentic-flow/sandbox:ro
@@ -60,10 +65,11 @@ services:
           cpus: "4.0"
           memory: 12G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 45s
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/health"]
+      interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 10
+      start_period: 300s
 
   orchestrator:
     build:

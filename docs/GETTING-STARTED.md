@@ -154,13 +154,14 @@ Or open OpenHands in the browser and type:
 | `bootstrap.sslip.io` does not open | Wrong hostname — use `https://139-162-150-187.sslip.io` (your IP with dashes) |
 | Connection refused on 80/443 | Stack not running — SSH in and run recovery (below) |
 | cloud-init failed | `ssh root@IP` → `tail -100 /var/log/pmm-agentic-flow-bootstrap.log` |
+| **502 Bad Gateway** on `/` but `/health` works | OpenHands not listening — `docker logs loop-openhands`; use OpenHands **1.7+** (V1 API) |
 | litellm unhealthy | Check `GITHUB_COPILOT_TOKEN` in `/etc/pmm-agentic-flow/env` |
 
 ### Recovery on the Linode (SSH)
 
 ```bash
 ssh root@139.162.150.187
-tail -100 /var/log/pmm-agentic-flow-bootstrap.log
+bash /opt/pmm-agentic-flow/src/scripts/stack-diagnose.sh
 bash /opt/pmm-agentic-flow/src/scripts/linode-recover.sh
 # or if repo missing:
 git clone https://github.com/travagliad/pmm-agentic-flow.git /opt/pmm-agentic-flow/src
