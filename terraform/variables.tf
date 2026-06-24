@@ -89,8 +89,8 @@ variable "orchestrator_api_key" {
 
 variable "openhands_version" {
   type        = string
-  default     = "1.7"
-  description = "OpenHands app image tag (V1 API). Must match AGENT_SERVER_IMAGE_TAG major."
+  default     = "0.39.0"
+  description = "OpenHands app image tag on ghcr.io/all-hands-ai/openhands."
 }
 
 variable "jira_base_url" {

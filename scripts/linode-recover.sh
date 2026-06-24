@@ -33,12 +33,22 @@ else
   exit 1
 fi
 
+fix_openhands_volumes() {
+  local uid="${1:-1000}"
+  local project="${2:-deploy}"
+  for vol in "${project}_openhands-state" "${project}_openhands-workspace"; do
+    if docker volume inspect "$vol" >/dev/null 2>&1; then
+      echo "==> chown $uid:$uid on volume $vol"
+      docker run --rm -v "${vol}:/data" alpine sh -c "chown -R ${uid}:${uid} /data && chmod -R u+rwX /data"
+    fi
+  done
+}
+
 echo "==> Starting stack..."
 cd "$DEST/deploy"
 docker compose --env-file "$DEST/.env" pull
-# Pre-pull agent-server image (first OpenHands V1 boot can take several minutes)
-OH_VER="$(grep -E '^OPENHANDS_VERSION=' "$DEST/.env" | cut -d= -f2- || echo 1.7)"
-docker pull "ghcr.io/openhands/agent-server:${OH_VER}-python" || true
+OH_UID="$(grep -E '^OPENHANDS_SANDBOX_USER_ID=' "$DEST/.env" | cut -d= -f2- || echo 1000)"
+fix_openhands_volumes "$OH_UID" deploy
 docker compose --env-file "$DEST/.env" up -d --build
 
 echo ""
