@@ -16,8 +16,10 @@ services:
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)\"",
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)",
         ]
       interval: 15s
       timeout: 10s
@@ -30,7 +32,7 @@ services:
     restart: unless-stopped
     depends_on:
       litellm:
-        condition: service_healthy
+        condition: service_started
     environment:
       LLM_MODEL: litellm_proxy/${LITELLM_MODEL}
       LLM_BASE_URL: http://litellm:4000
@@ -70,7 +72,7 @@ services:
     restart: unless-stopped
     depends_on:
       openhands:
-        condition: service_healthy
+        condition: service_started
     environment:
       ORCHESTRATOR_PORT: ${ORCHESTRATOR_PORT:-8080}
       ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY}
