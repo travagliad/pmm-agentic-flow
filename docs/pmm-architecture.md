@@ -1,6 +1,6 @@
 # PMM — how the loop maps to real repos
 
-This repo is **not** PMM. It is the **orchestration platform** (Linode + OpenHands + LiteLLM).
+This repo is **not** PMM. It is the **orchestration platform** (Linode + Agent Canvas + LiteLLM).
 
 Product and QA code stay in their own repositories. The loop coordinates agents, sandboxes, and Jira status transitions.
 
@@ -9,12 +9,14 @@ Product and QA code stay in their own repositories. The loop coordinates agents,
 ```text
 docker compose up
   ├── Caddy          → https://loop.your-domain.com
-  ├── OpenHands      → UI + API (port 3000 internal)
-  ├── LiteLLM        → Copilot as the model
-  └── Orchestrator   → Jira webhooks + status sync (future)
+  ├── Agent Canvas   → UI + backend (port 8000 internal)
+  ├── LiteLLM        → Copilot as the model (optional)
+  └── Orchestrator   → Jira webhooks + loop API (/hooks, /loop)
 ```
 
-OpenHands stays running after deploy. Each ticket gets **one long-lived conversation** and **one sandbox** until Ready for Merge.
+See [agent-canvas.md](./agent-canvas.md) for the current OpenHands product layout (Agent Canvas replaced the legacy Local GUI on port 3000).
+
+Agent Canvas stays running after deploy. Each ticket gets **one long-lived conversation** and workspace until Ready for Merge.
 
 ## Repos involved
 

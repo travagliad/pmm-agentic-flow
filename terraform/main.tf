@@ -30,9 +30,10 @@ resource "linode_instance" "loop_host" {
       github_copilot_token   = var.github_copilot_token
       litellm_master_key     = var.litellm_master_key
       litellm_model          = var.litellm_model
-      openhands_api_key      = var.openhands_api_key
+      agent_canvas_api_key    = coalesce(var.agent_canvas_api_key, var.openhands_api_key)
+      agent_canvas_secret_key = var.agent_canvas_secret_key
+      agent_canvas_version   = var.agent_canvas_version
       orchestrator_api_key   = var.orchestrator_api_key
-      openhands_version      = var.openhands_version
       jira_base_url          = var.jira_base_url
       jira_email             = var.jira_email
       jira_api_token         = var.jira_api_token

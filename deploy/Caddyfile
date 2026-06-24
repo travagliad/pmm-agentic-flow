@@ -5,8 +5,8 @@
 {$LOOP_DOMAIN} {
   encode gzip
 
-  @api path /api/* /hooks/* /health
-  handle @api {
+  # Orchestrator (Jira webhooks + loop API) — must NOT steal Agent Canvas /api/*
+  handle /hooks/* {
     reverse_proxy orchestrator:8080 {
       header_up Host {host}
       header_up X-Forwarded-Proto {scheme}
@@ -15,12 +15,26 @@
     }
   }
 
-  handle {
-    reverse_proxy openhands:3000 {
+  handle_path /loop/* {
+    reverse_proxy orchestrator:8080 {
       header_up Host {host}
       header_up X-Forwarded-Proto {scheme}
       header_up X-Forwarded-For {remote_host}
       header_up X-Real-IP {remote_host}
+    }
+  }
+
+  # Agent Canvas (UI + backend on :8000) — includes WebSocket/SSE for live events
+  handle {
+    reverse_proxy agent-canvas:8000 {
+      header_up Host {host}
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+      transport http {
+        read_timeout 3600s
+        write_timeout 3600s
+      }
     }
   }
 }

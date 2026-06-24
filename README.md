@@ -63,4 +63,4 @@ export ORCHESTRATOR_API_KEY=<from terraform.tfvars>
 ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Test"
 ```
 
-Or use the OpenHands UI at `https://loop.yourdomain.com/`.
+Or use **Agent Canvas** at `https://loop.yourdomain.com/` (see [docs/agent-canvas.md](docs/agent-canvas.md)).

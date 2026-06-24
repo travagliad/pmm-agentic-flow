@@ -77,9 +77,29 @@ variable "litellm_model" {
   default = "github/gpt-4.1"
 }
 
+variable "agent_canvas_api_key" {
+  type        = string
+  sensitive   = true
+  description = "LOCAL_BACKEND_API_KEY for Agent Canvas (--public mode on VM)."
+}
+
+variable "agent_canvas_secret_key" {
+  type        = string
+  sensitive   = true
+  description = "OH_SECRET_KEY — protects stored settings and secrets in Agent Canvas."
+}
+
+variable "agent_canvas_version" {
+  type        = string
+  default     = "latest"
+  description = "ghcr.io/openhands/agent-canvas image tag."
+}
+
+# Deprecated alias — use agent_canvas_api_key in new tfvars.
 variable "openhands_api_key" {
   type      = string
   sensitive = true
+  default   = ""
 }
 
 variable "orchestrator_api_key" {
@@ -89,8 +109,8 @@ variable "orchestrator_api_key" {
 
 variable "openhands_version" {
   type        = string
-  default     = "0.39.0"
-  description = "OpenHands app image tag on ghcr.io/all-hands-ai/openhands."
+  default     = ""
+  description = "Deprecated — ignored; use agent_canvas_version."
 }
 
 variable "jira_base_url" {

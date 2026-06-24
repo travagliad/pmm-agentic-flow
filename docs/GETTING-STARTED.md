@@ -154,9 +154,10 @@ Or open OpenHands in the browser and type:
 | `bootstrap.sslip.io` does not open | Wrong hostname — use `https://139-162-150-187.sslip.io` (your IP with dashes) |
 | Connection refused on 80/443 | Stack not running — SSH in and run recovery (below) |
 | cloud-init failed | `ssh root@IP` → `tail -100 /var/log/pmm-agentic-flow-bootstrap.log` |
-| **502 Bad Gateway** on `/` but `/health` works | OpenHands not listening — `docker logs loop-openhands` |
-| `Permission denied: /.openhands-state/.jwt_secret` | Volume owned by root — `bash scripts/fix-openhands-volumes.sh` then restart openhands |
-| litellm unhealthy (but manual curl works) | `docker compose up -d --no-deps openhands orchestrator caddy` |
+| **502 Bad Gateway** on `/` | Agent Canvas not up — `docker logs loop-agent-canvas` |
+| Canvas asks for API key | Use `AGENT_CANVAS_API_KEY` from `/etc/pmm-agentic-flow/env` |
+| Legacy JWT permission errors | You are on old OpenHands 0.39 — `git pull` and migrate per [agent-canvas.md](./agent-canvas.md) |
+| litellm unhealthy (manual curl works) | `docker compose up -d --no-deps agent-canvas orchestrator caddy` |
 
 ### Recovery on the Linode (SSH)
 
@@ -177,4 +178,4 @@ Correct URL for IP `139.162.150.187`:
 https://139-162-150-187.sslip.io/
 ```
 
-See also: [deploy-linode.md](./deploy-linode.md)
+See also: [agent-canvas.md](./agent-canvas.md), [deploy-linode.md](./deploy-linode.md)

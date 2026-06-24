@@ -143,14 +143,26 @@ export function loadEnv(): Env {
     return value;
   };
 
+  const apiKey =
+    process.env.AGENT_CANVAS_API_KEY ??
+    process.env.OPENHANDS_API_KEY ??
+    process.env.LOCAL_BACKEND_API_KEY;
+  if (!apiKey) throw new Error("Missing AGENT_CANVAS_API_KEY (or OPENHANDS_API_KEY)");
+
+  const publicUrl =
+    process.env.AGENT_CANVAS_PUBLIC_URL ??
+    process.env.OPENHANDS_PUBLIC_URL ??
+    (process.env.LOOP_DOMAIN ? `https://${process.env.LOOP_DOMAIN}` : undefined);
+
   return {
     orchestratorPort: Number(process.env.ORCHESTRATOR_PORT ?? 8080),
     orchestratorApiKey: required("ORCHESTRATOR_API_KEY"),
-    openhandsBaseUrl: process.env.OPENHANDS_BASE_URL ?? "http://127.0.0.1:3000",
-    openhandsPublicUrl: process.env.OPENHANDS_PUBLIC_URL ?? process.env.LOOP_DOMAIN
-      ? `https://${process.env.LOOP_DOMAIN}`
-      : "http://127.0.0.1:3000",
-    openhandsApiKey: required("OPENHANDS_API_KEY"),
+    openhandsBaseUrl:
+      process.env.AGENT_CANVAS_BASE_URL ??
+      process.env.OPENHANDS_BASE_URL ??
+      "http://127.0.0.1:8000",
+    openhandsPublicUrl: publicUrl ?? "http://127.0.0.1:8000",
+    openhandsApiKey: apiKey,
     githubToken: required("GITHUB_TOKEN"),
     sandboxTtlHours: Number(process.env.SANDBOX_TTL_HOURS ?? 72),
     maxAgentRetries: Number(process.env.MAX_AGENT_RETRIES ?? 2),

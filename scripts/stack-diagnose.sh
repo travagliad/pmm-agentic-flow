@@ -10,28 +10,28 @@ echo "==> Stack status"
 $COMPOSE ps -a
 
 echo ""
-echo "==> Env (domain + openhands version)"
-grep -E '^(LOOP_DOMAIN|OPENHANDS_VERSION|AGENT_SERVER)' "$ENV_FILE" 2>/dev/null || true
+echo "==> Env (domain + agent canvas)"
+grep -E '^(LOOP_DOMAIN|AGENT_CANVAS_|OPENHANDS_)' "$ENV_FILE" 2>/dev/null || true
 
 echo ""
 echo "==> Host ports"
-ss -tlnp | grep -E ':3000|:4000|:8080|:443 ' || true
+ss -tlnp | grep -E ':8000|:4000|:8080|:443 ' || true
 
 echo ""
-echo "==> Caddy -> orchestrator /health"
+echo "==> Caddy -> orchestrator /loop/health"
 docker exec loop-caddy wget -qO- --timeout=5 http://orchestrator:8080/health 2>&1 || echo "FAIL"
 
 echo ""
-echo "==> Caddy -> openhands:3000 /health"
-docker exec loop-caddy wget -qO- --timeout=5 http://openhands:3000/health 2>&1 || echo "FAIL (502 in browser = this)"
+echo "==> Caddy -> agent-canvas:8000"
+docker exec loop-caddy wget -qO- --timeout=5 http://agent-canvas:8000/ 2>&1 | head -c 200 || echo "FAIL (502 in browser = this)"
 
 echo ""
 echo "==> loop-litellm (last 25 lines)"
 docker logs loop-litellm --tail 25 2>&1 || true
 
 echo ""
-echo "==> loop-openhands (last 50 lines)"
-docker logs loop-openhands --tail 50 2>&1 || true
+echo "==> loop-agent-canvas (last 50 lines)"
+docker logs loop-agent-canvas --tail 50 2>&1 || true
 
 echo ""
 echo "==> loop-caddy (last 15 lines)"

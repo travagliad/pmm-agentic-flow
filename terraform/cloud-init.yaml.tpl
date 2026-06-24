@@ -17,15 +17,17 @@ write_files:
     content: |
       LOOP_DOMAIN=${domain}
       ACME_EMAIL=${acme_email}
+      AGENT_CANVAS_PUBLIC_URL=https://${domain}
+      AGENT_CANVAS_VERSION=${agent_canvas_version}
+      AGENT_CANVAS_API_KEY=${agent_canvas_api_key}
+      AGENT_CANVAS_SECRET_KEY=${agent_canvas_secret_key}
+      AGENT_CANVAS_UID=1000
       OPENHANDS_PUBLIC_URL=https://${domain}
+      OPENHANDS_API_KEY=${agent_canvas_api_key}
       GITHUB_TOKEN=${github_token}
       GITHUB_COPILOT_TOKEN=${github_copilot_token}
       LITELLM_MASTER_KEY=${litellm_master_key}
       LITELLM_MODEL=${litellm_model}
-      OPENHANDS_VERSION=${openhands_version}
-      OPENHANDS_API_KEY=${openhands_api_key}
-      OPENHANDS_BASE_URL=http://127.0.0.1:3000
-      OPENHANDS_SANDBOX_USER_ID=1000
       ORCHESTRATOR_API_KEY=${orchestrator_api_key}
       ORCHESTRATOR_PORT=8080
       SANDBOX_TTL_HOURS=72

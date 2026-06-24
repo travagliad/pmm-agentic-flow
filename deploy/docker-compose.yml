@@ -26,69 +26,48 @@ services:
       retries: 10
       start_period: 90s
 
-  openhands-init:
+  agent-canvas-init:
     image: alpine:3.21
-    container_name: loop-openhands-init
+    container_name: loop-agent-canvas-init
     user: "0:0"
     environment:
-      OPENHANDS_UID: ${OPENHANDS_SANDBOX_USER_ID:-1000}
+      CANVAS_UID: ${AGENT_CANVAS_UID:-1000}
     volumes:
-      - openhands-state:/state
-      - openhands-workspace:/workspace
+      - agent-canvas-state:/state
+      - agent-canvas-projects:/projects
     command:
       - sh
       - -ec
       - |
-        mkdir -p /state /workspace
-        chown -R "$${OPENHANDS_UID}:$${OPENHANDS_UID}" /state /workspace
-        chmod -R u+rwX /state /workspace
-        echo "openhands volumes owned by uid $${OPENHANDS_UID}"
+        mkdir -p /state /projects
+        chown -R "$${CANVAS_UID}:$${CANVAS_UID}" /state /projects
+        chmod -R u+rwX /state /projects
+        echo "agent-canvas volumes owned by uid $${CANVAS_UID}"
     restart: "no"
 
-  openhands:
-    image: ghcr.io/all-hands-ai/openhands:${OPENHANDS_VERSION:-0.39.0}
-    container_name: loop-openhands
+  agent-canvas:
+    image: ghcr.io/openhands/agent-canvas:${AGENT_CANVAS_VERSION:-latest}
+    container_name: loop-agent-canvas
     restart: unless-stopped
-    stdin_open: true
-    tty: true
     depends_on:
-      openhands-init:
+      agent-canvas-init:
         condition: service_completed_successfully
-      litellm:
-        condition: service_started
     environment:
-      LLM_MODEL: litellm_proxy/${LITELLM_MODEL}
-      LLM_BASE_URL: http://litellm:4000
-      LLM_API_KEY: ${LITELLM_MASTER_KEY}
-      LLM_EXTRA_HEADERS: '{"editor-version":"${COPILOT_EDITOR_VERSION}","Copilot-Integration-Id":"${COPILOT_INTEGRATION_ID}"}'
-      SANDBOX_RUNTIME_CONTAINER_IMAGE: ghcr.io/all-hands-ai/runtime:${OPENHANDS_VERSION:-0.39.0}-nikolaik
-      SANDBOX_USER_ID: ${OPENHANDS_SANDBOX_USER_ID}
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
-      LOG_ALL_EVENTS: "true"
-      WORKSPACE_MOUNT_PATH: /opt/workspace_base
-      SANDBOX_ENABLE_AUTO_LINT: "true"
+      PORT: "8000"
+      LOCAL_BACKEND_API_KEY: ${AGENT_CANVAS_API_KEY}
+      OH_SECRET_KEY: ${AGENT_CANVAS_SECRET_KEY}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - openhands-state:/.openhands
-      - openhands-state:/.openhands-state
-      - openhands-workspace:/opt/workspace_base
-      - ../agents/microagents:/app/microagents/custom:ro
-      - ../sandbox:/opt/pmm-agentic-flow/sandbox:ro
+      - agent-canvas-state:/home/openhands/.openhands
+      - agent-canvas-projects:/projects
+      - ../sandbox:/projects/pmm-agentic-flow/sandbox:ro
     ports:
-      - "127.0.0.1:3000:3000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    deploy:
-      resources:
-        limits:
-          cpus: "4.0"
-          memory: 12G
+      - "127.0.0.1:8000:8000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/"]
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 180s
+      start_period: 120s
 
   orchestrator:
     build:
@@ -96,14 +75,17 @@ services:
     container_name: loop-orchestrator
     restart: unless-stopped
     depends_on:
-      openhands:
+      agent-canvas:
         condition: service_started
     environment:
       ORCHESTRATOR_PORT: ${ORCHESTRATOR_PORT:-8080}
       ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY}
-      OPENHANDS_BASE_URL: http://openhands:3000
+      AGENT_CANVAS_BASE_URL: http://agent-canvas:8000
+      AGENT_CANVAS_PUBLIC_URL: https://${LOOP_DOMAIN}
+      AGENT_CANVAS_API_KEY: ${AGENT_CANVAS_API_KEY}
+      OPENHANDS_BASE_URL: http://agent-canvas:8000
       OPENHANDS_PUBLIC_URL: https://${LOOP_DOMAIN}
-      OPENHANDS_API_KEY: ${OPENHANDS_API_KEY}
+      OPENHANDS_API_KEY: ${AGENT_CANVAS_API_KEY}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
       SANDBOX_TTL_HOURS: ${SANDBOX_TTL_HOURS:-72}
       MAX_AGENT_RETRIES: ${MAX_AGENT_RETRIES:-2}
@@ -127,7 +109,7 @@ services:
     container_name: loop-caddy
     restart: unless-stopped
     depends_on:
-      - openhands
+      - agent-canvas
       - orchestrator
     environment:
       LOOP_DOMAIN: ${LOOP_DOMAIN}
@@ -141,8 +123,8 @@ services:
       - caddy-config:/config
 
 volumes:
-  openhands-state:
-  openhands-workspace:
+  agent-canvas-state:
+  agent-canvas-projects:
   loop-data:
   caddy-data:
   caddy-config:

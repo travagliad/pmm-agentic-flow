@@ -150,7 +150,8 @@ function main() {
     console.log(`Dev repo: ${loop.dev.repository}`);
     console.log(`QA repo: ${loop.qa.repository}`);
     console.log(`Jira webhook: POST /hooks/jira`);
-    console.log(`Manual transition: POST /api/tickets/transition`);
+    console.log(`Orchestrator health: GET /loop/health (via Caddy)`);
+    console.log(`Manual transition: POST /loop/api/tickets/transition`);
   });
 }
 
