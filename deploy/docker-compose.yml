@@ -14,10 +14,15 @@ services:
     ports:
       - "127.0.0.1:4000:4000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health/liveliness"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)\"",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
 
   openhands:
     image: ghcr.io/all-hands-ai/openhands:${OPENHANDS_VERSION}
