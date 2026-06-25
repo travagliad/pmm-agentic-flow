@@ -6,89 +6,58 @@ Ver também: [pmm-architecture.md](./pmm-architecture.md), [llm-acp.md](./llm-ac
 
 ---
 
-## Estado actual / Current state (Fase 1)
+## Estado actual / Current state (Fase 2 — implementado)
 
-| Componente | Onde corre | Papel hoje |
-|------------|------------|------------|
-| **Orchestrator** | Control plane `:8080` | Webhook Jira, provisioning Linode, `dispatchCommand` |
-| **Agent Canvas (UI)** | Control plane `:8000` + ngrok | Acesso manual via `https://<ngrok>/` — **não** recebe prompts do workflow |
-| **Agent Canvas (workflow)** | Runner VM por ticket `:8000` | `ensureRunner` + `OpenHandsClient` enviam `/opsx:*` e `/loop:qa` |
-| **Isolamento** | VM Linode dedicada | Sem Docker; workspace em `/projects/pmm` + `pmm-qa` |
-| **ACP** | CP + runners | Cursor `agent acp` ou Copilot `copilot acp` (fallback se CDN 403) |
+| Componente | Onde corre | Papel |
+|------------|------------|-------|
+| **Orchestrator** | Control plane `:8080` | Webhook Jira, provisioning Linode, triggers ao agent-server do sandbox |
+| **Agent Canvas (UI)** | Control plane `:8000` + ngrok | **UI única** — `https://<ngrok>/` |
+| **Sandbox runner** | VM Linode por ticket `:8000` | `agent-canvas --backend-only --public` — agent-server + workspace apenas |
+| **Proxy same-origin** | nginx → orchestrator `/sandbox/{TICKET}/` | Browser usa backend remoto sem expor IP do runner |
+| **Chat bootstrap** | `/tickets/{TICKET}/chat` | Regista backend no browser e abre conversa na UI principal |
+| **ACP** | Control plane apenas | Cursor `agent acp` — runners sem ACP |
 
-O código em `orchestrator/src/workflow-engine.ts` despacha explicitamente para o Canvas do **runner**, não do control plane. Isto é intencional no POC actual: isola bem e espelha o que OpenHands Cloud faz “por baixo”, mas duplica UI por ticket.
+```text
+Jira → orchestrator
+         ├─ Linode API → runner (backend-only)
+         ├─ OpenHandsClient → http://<runner-ip>:8000  (triggers /opsx:*, /loop:qa)
+         └─ Jira link → https://<ngrok>/tickets/PMM-123/chat → UI principal + proxy /sandbox/PMM-123/
+```
+
+Ver [sandbox-lifecycle.md](./sandbox-lifecycle.md).
 
 ```mermaid
 flowchart TB
-  subgraph hoje [POC Actual]
-    J1[Jira] --> O1[Orchestrator CP]
-    O1 --> R1[Runner VM + Canvas UI]
-    O1 --> R2[Runner VM + Canvas UI]
-    U1[Utilizador] --> R1
-    CP1[Canvas CP ngrok] -. manual .-> U1
-  end
-
-  subgraph alvo [Alvo Fase 2]
-    J2[Jira] --> O2[Orchestrator CP]
-    O2 --> API[Canvas API CP]
-    API --> UI[UI unica ngrok]
-    O2 --> L2[Runner backend-only]
-    O2 --> L3[Runner backend-only]
-    API --> L2
-    API --> L3
-    U2[Utilizador] --> UI
-  end
+  J[Jira] --> O[Orchestrator CP]
+  O --> R[Runner backend-only]
+  O -->|triggers| R
+  U[Utilizador] --> UI[Canvas UI ngrok]
+  UI -->|/sandbox/PMM-123/api| O
+  O -->|proxy| R
+  U -->|/tickets/PMM-123/chat| O
 ```
 
 ---
 
-## Fase 1 — Consolidar (agora)
+## Fase 1 — Legado (runner_per_chat)
 
-**Manter:**
-
-- Terraform + orchestrator Node + ticket store
-- Provisioning Linode por ticket (`LinodeRunnerClient`)
-- `OpenHandsClient` com API V1 (`app-conversations`, `send-message`)
-- VM como sandbox (sem Docker)
-- nginx + ngrok no control plane (webhook Jira estável)
-- ACP com Copilot como fallback (CDN 403 em Linode — ver [llm-acp.md](./llm-acp.md))
-
-**Completar gaps:**
-
-- Wire completo Jira webhook → `handleTransition`
-- FB resolver + comentários PR automáticos
-- `simulate-transition.sh` para testes sem Jira
-
-**Não mudar ainda:** modelo runner-per-chat — funciona e isola bem.
+Modo antigo: Canvas completo em cada runner; links Jira apontavam para `http://<runner-ip>:8000`. Substituído por `sandbox.mode: central_ui_remote_sandbox` em `config/stack.yaml`.
 
 ---
 
-## Fase 2 — Chat único + runners backend-only
+## Fase 2 — Chat único + runners backend-only (implementado)
 
-**Objectivo:** uma conversa por ticket no **control plane**; runners = hosts de execução apenas (como OpenHands Cloud / Cursor Agents).
+**Objectivo:** uma conversa por ticket na **UI principal**; runners = sandboxes de execução (como OpenHands Cloud / Cursor Agents).
 
-```text
-Jira webhook → orchestrator (control plane :8080)
-                    │
-                    ├─ Linode API → runner VM (backend-only, :8000)
-                    │
-                    └─ OpenHandsClient → control plane Canvas (:8000)
-                           conversa PMM-12345
-                           execução no runner registado como backend
-```
+**Implementação:**
 
-**Passos técnicos:**
+1. Runners: `agent-canvas --backend-only --public`.
+2. Control plane: `agent-canvas --public` (UI via ngrok).
+3. Orchestrator: `OpenHandsClient` → runner IP (agent-server); links públicos → `/tickets/{key}/chat`.
+4. Registo de backend: página bootstrap + proxy `/sandbox/{ticket}/` (same-origin).
+5. ACP só no control plane.
 
-1. **Runners:** `agent-canvas --backend-only --public` (sem UI no runner).
-2. **Control plane:** manter `agent-canvas --public` (UI única via ngrok).
-3. **Orchestrator:** `OpenHandsClient` aponta para `http://127.0.0.1:8000` (CP), não para IP do runner.
-4. **Registo de backend:** ao provisionar runner, registar automaticamente como backend no Canvas do CP.
-5. **Links Jira:** `https://<ngrok>/conversations/{id}` em vez de `http://<runner-ip>:8000`.
-6. **Workspace PMM:** `sandbox/setup-pmm-workspace.sh` no runner; expor SSH/VS Code via API sandbox.
-
-**Alternativa frágil:** dispatch HTTP ao runner + espelhar eventos para conversa no CP — evitar se existir API de backends.
-
-OpenHands self-hosted **não tem** hoje equivalente plug-and-play ao `OpenHandsCloudWorkspace`. A Fase 2 inclui um **spike de 1–2 semanas** para validar registo automático de backends.
+**Limitação conhecida:** backends Canvas continuam em `localStorage` do browser — o bootstrap configura por sessão/dispositivo na primeira visita ao link do ticket. Não há API server-side OpenHands para backends.
 
 ---
 

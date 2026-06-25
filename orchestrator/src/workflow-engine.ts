@@ -1,4 +1,5 @@
 import type { Env, JiraWorkflowConfig, StackConfig } from "./config.js";
+import { ticketChatUrl } from "./chat-bootstrap.js";
 import {
   buildApplyPrompt,
   buildArchivePrompt,
@@ -78,18 +79,18 @@ export class WorkflowEngine {
 
     switch (phase) {
       case "ready_for_refinement": {
-        const canvas = await this.ensureRunner(ticket);
-        await this.dispatchCommand(ticket, buildProposePrompt(ticket, this.stack, input.issue ?? {}), canvas);
+        await this.ensureRunner(ticket);
+        await this.dispatchCommand(ticket, buildProposePrompt(ticket, this.stack, input.issue ?? {}));
         break;
       }
       case "ready_for_work":
         this.store.log(ticket, "Human gate: PO reviews spec PR.");
         break;
       case "in_progress": {
-        const canvas = await this.ensureRunner(ticket);
+        await this.ensureRunner(ticket);
         await this.syncFbArtifacts(ticket, false);
-        await this.dispatchCommand(ticket, buildApplyPrompt(ticket, this.stack, input.issue ?? {}), canvas);
-        await this.postConversationLink(ticket, canvas);
+        await this.dispatchCommand(ticket, buildApplyPrompt(ticket, this.stack, input.issue ?? {}));
+        await this.postConversationLink(ticket);
         break;
       }
       case "in_review":
@@ -100,10 +101,9 @@ export class WorkflowEngine {
         await this.handleInQa(ticket, input.issue ?? {});
         break;
       case "ready_for_merge": {
-        const canvas = this.canvasFor(ticket);
-        if (canvas) {
-          await this.dispatchCommand(ticket, buildFinalizePrompt(ticket, this.stack), canvas);
-          await this.dispatchCommand(ticket, buildArchivePrompt(ticket), canvas);
+        if (this.sandboxCanvas(ticket)) {
+          await this.dispatchCommand(ticket, buildFinalizePrompt(ticket, this.stack));
+          await this.dispatchCommand(ticket, buildArchivePrompt(ticket));
         }
         await this.teardownRunner(ticket);
         ticket.phase = "done";
@@ -151,12 +151,12 @@ export class WorkflowEngine {
     if (!this.runner.enabled) {
       await this.jira.addComment(
         ticket.ticketKey,
-        "LINODE_TOKEN not configured — cannot provision chat runner. Set LINODE_TOKEN on control plane and re-transition to In QA.",
+        "LINODE_TOKEN not configured — cannot provision sandbox runner. Set LINODE_TOKEN on control plane and re-transition to In QA.",
       );
       return;
     }
 
-    const canvas = await this.ensureRunner(ticket);
+    await this.ensureRunner(ticket);
     await this.syncFbArtifacts(ticket, true);
 
     if (!ticket.fbServerImage || !ticket.fbClientImage) {
@@ -165,10 +165,10 @@ export class WorkflowEngine {
 
     await this.jira.addComment(
       ticket.ticketKey,
-      `QA on dedicated runner ${ticket.runnerIp} (Linode ${ticket.runnerLinodeId}). Same chat continues from Dev.`,
+      `QA on sandbox runner (Linode ${ticket.runnerLinodeId}). Same chat continues from Dev — open the ticket chat link below.`,
     );
 
-    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.stack, ctx), canvas);
+    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.stack, ctx));
     await this.postAccessBundle(ticket, "in_qa");
   }
 
@@ -186,17 +186,18 @@ export class WorkflowEngine {
     try {
       await this.runner.destroy(linodeId);
       this.store.log(ticket, `Destroyed runner Linode ${linodeId}`);
-      await this.jira.addComment(ticket.ticketKey, `Chat runner destroyed (Linode ${linodeId}).`);
+      await this.jira.addComment(ticket.ticketKey, `Sandbox runner destroyed (Linode ${linodeId}).`);
     } catch (err) {
       this.store.log(ticket, `Runner destroy failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  async dispatchCommand(
-    ticket: TicketRecord,
-    message: string,
-    client: OpenHandsClient,
-  ): Promise<void> {
+  async dispatchCommand(ticket: TicketRecord, message: string): Promise<void> {
+    const client = this.sandboxCanvas(ticket);
+    if (!client) {
+      throw new Error(`No sandbox runner for ${ticket.ticketKey} — provision failed or LINODE_TOKEN missing`);
+    }
+
     const repo = this.stack.dev.repository;
     const branch = this.stack.dev.default_branch;
 
@@ -208,17 +209,17 @@ export class WorkflowEngine {
       });
       const convId = await client.waitForConversation(start.id);
       ticket.conversationId = convId;
-      this.store.log(ticket, `Started conversation ${convId} on runner`);
+      this.store.log(ticket, `Started conversation ${convId} on sandbox runner`);
     } else {
       await client.sendMessage(ticket.conversationId, message);
       this.store.log(ticket, `Sent message to conversation ${ticket.conversationId}`);
     }
     this.store.save(ticket);
-    await this.postConversationLink(ticket, client);
+    await this.postConversationLink(ticket);
   }
 
   async handleInReview(ticket: TicketRecord): Promise<void> {
-    const canvas = this.canvasFor(ticket);
+    const canvas = this.sandboxCanvas(ticket);
     if (ticket.conversationId && canvas) {
       await canvas.sendMessage(ticket.conversationId, buildInReviewNotice(ticket));
       this.store.log(ticket, "Posted In Review notice to conversation.");
@@ -227,7 +228,7 @@ export class WorkflowEngine {
   }
 
   async refreshAccessLinks(ticket: TicketRecord, reason: string): Promise<void> {
-    const canvas = this.canvasFor(ticket);
+    const canvas = this.sandboxCanvas(ticket);
     if (!ticket.conversationId || !canvas) return;
     await sleep(3000);
     const urls = await canvas.getAccessUrls(ticket.conversationId);
@@ -237,16 +238,16 @@ export class WorkflowEngine {
     await this.postAccessBundle(ticket, reason);
   }
 
-  private async ensureRunner(ticket: TicketRecord): Promise<OpenHandsClient> {
+  private async ensureRunner(ticket: TicketRecord): Promise<void> {
     const existingIp = ticket.runnerIp ?? ticket.workerIp;
     if (ticket.runnerLinodeId && existingIp) {
       ticket.runnerIp = existingIp;
-      return this.canvasClientFor(existingIp);
+      return;
     }
 
     if (!this.runner.enabled) {
       throw new Error(
-        "LINODE_TOKEN not configured — cannot provision chat runner. Set LINODE_TOKEN on the control plane.",
+        "LINODE_TOKEN not configured — cannot provision sandbox runner. Set LINODE_TOKEN on the control plane.",
       );
     }
     if (!this.env.workerRootPassword) {
@@ -255,7 +256,7 @@ export class WorkflowEngine {
 
     await this.jira.addComment(
       ticket.ticketKey,
-      "Provisioning dedicated chat runner (one Linode VM per ticket, no Docker sandboxes)…",
+      "Provisioning dedicated sandbox runner (backend-only Agent Canvas, no UI on runner)…",
     );
 
     const provisioned = await this.runner.provisionRunner(ticket.ticketKey);
@@ -267,34 +268,31 @@ export class WorkflowEngine {
 
     await this.jira.addComment(
       ticket.ticketKey,
-      `Runner ${provisioned.ip} (Linode ${provisioned.linodeId}). Waiting for Agent Canvas on :8000…`,
+      `Sandbox runner ready internally. Chat UI: ${ticketChatUrl(this.env, ticket.ticketKey)}`,
     );
 
     const ready = await this.runner.waitUntilCanvasReady(provisioned.ip);
     if (!ready) {
       await this.jira.addComment(
         ticket.ticketKey,
-        `Runner ${provisioned.ip}: Agent Canvas did not respond on :8000 within timeout.`,
+        `Sandbox runner ${provisioned.ip}: agent-server did not respond on :8000 within timeout.`,
       );
     }
-
-    return this.canvasClientFor(provisioned.ip);
   }
 
-  private canvasFor(ticket: TicketRecord): OpenHandsClient | undefined {
+  /** Agent-server on the per-ticket sandbox (orchestrator triggers only). */
+  private sandboxCanvas(ticket: TicketRecord): OpenHandsClient | undefined {
     const ip = ticket.runnerIp ?? ticket.workerIp;
     if (!ip) return undefined;
-    return this.canvasClientFor(ip);
+    return new OpenHandsClient(this.env, {
+      baseUrl: `http://${ip}:8000`,
+      publicUrl: this.env.agentCanvasPublicUrl,
+    });
   }
 
-  private canvasClientFor(ip: string): OpenHandsClient {
-    const base = `http://${ip}:8000`;
-    return new OpenHandsClient(this.env, { baseUrl: base, publicUrl: base });
-  }
-
-  private async postConversationLink(ticket: TicketRecord, client: OpenHandsClient): Promise<void> {
+  private async postConversationLink(ticket: TicketRecord): Promise<void> {
     if (!ticket.conversationId) return;
-    const url = client.conversationPublicUrl(ticket.conversationId);
+    const url = ticketChatUrl(this.env, ticket.ticketKey);
     const tpl = this.workflow.jira.comments.conversation;
     await this.jira.addComment(ticket.ticketKey, `Conversation: ${tpl.replace("{url}", url)}`);
   }
@@ -302,14 +300,11 @@ export class WorkflowEngine {
   private async postAccessBundle(ticket: TicketRecord, reason: string): Promise<void> {
     const { comments } = this.workflow.jira;
     const lines: string[] = [`*Sandbox access* (${reason})`, ""];
-    const canvas = this.canvasFor(ticket);
+    const canvas = this.sandboxCanvas(ticket);
 
-    if (ticket.conversationId && canvas) {
+    if (ticket.conversationId) {
       lines.push(
-        comments.conversation.replace(
-          "{url}",
-          canvas.conversationPublicUrl(ticket.conversationId),
-        ),
+        comments.conversation.replace("{url}", ticketChatUrl(this.env, ticket.ticketKey)),
       );
     }
     if (ticket.fbServerImage) {
@@ -320,10 +315,6 @@ export class WorkflowEngine {
     }
     if (ticket.devPrUrl) {
       lines.push(comments.dev_pr.replace("{url}", ticket.devPrUrl));
-    }
-    const ip = ticket.runnerIp ?? ticket.workerIp;
-    if (ip) {
-      lines.push(`Runner: http://${ip}:8000`);
     }
 
     for (const u of ticket.accessUrls) {

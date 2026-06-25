@@ -108,9 +108,9 @@ export class LinodeRunnerClient {
 
   private buildCloudInit(ticketKey: string): string {
     const secret = this.env.agentCanvasSecretKey ?? "";
-    const copilot = this.env.githubCopilotToken ?? this.env.githubToken;
-    const cursor = this.env.cursorApiKey ?? "";
     const version = this.env.agentCanvasVersion;
+    const publicBase = this.env.agentCanvasPublicUrl.replace(/\/$/, "");
+    const sandboxPublicUrl = `${publicBase}/sandbox/${ticketKey}`;
 
     return `#cloud-config
 package_update: true
@@ -124,15 +124,13 @@ write_files:
     permissions: "0600"
     content: |
       TICKET_KEY=${ticketKey}
-      AGENT_CANVAS_PUBLIC_URL=http://__RUNNER_IP__:8000
+      AGENT_CANVAS_PUBLIC_URL=${sandboxPublicUrl}
       AGENT_CANVAS_VERSION=${version}
       LOCAL_BACKEND_API_KEY=${this.env.agentCanvasApiKey}
       AGENT_CANVAS_API_KEY=${this.env.agentCanvasApiKey}
       OH_SECRET_KEY=${secret}
       AGENT_CANVAS_SECRET_KEY=${secret}
       GITHUB_TOKEN=${this.env.githubToken}
-      GITHUB_COPILOT_TOKEN=${copilot}
-      CURSOR_API_KEY=${cursor}
       BOOTSTRAP_DEST=/opt/pmm-agentic-flow/src
 
 runcmd:

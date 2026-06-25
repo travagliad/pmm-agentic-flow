@@ -73,7 +73,7 @@ lifecycle:
     - ready_for_merge
 
 sandbox:
-  mode: runner_per_chat
+  mode: central_ui_remote_sandbox
   ttl_hours: 72
   keep_warm_until: ready_for_merge
   setup_script: sandbox/setup-pmm-workspace.sh

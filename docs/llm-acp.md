@@ -31,24 +31,18 @@ Bootstrap **fails** if `cursor_api_key` is set and `agent --version` does not wo
 1. Open `https://<ngrok-domain>/` or `http://<public_ip>:8000/`
 2. **Manage Backends** → command `agent`, args `acp` ([Cursor CLI](https://cursor.com/docs/cli/installation))
 
-## Architecture: control plane vs runner chat
+## Architecture: central UI + sandbox runners
 
-**Current POC behaviour:**
+| Host | Role | Orchestrator |
+|------|------|--------------|
+| Control plane | **Main Canvas UI** (`https://<domain>/`) + ACP (`agent acp`) | Jira webhooks, Linode provisioning |
+| Per-ticket sandbox VM | `agent-canvas --backend-only --public` — agent-server + `/projects/pmm` | **Triggers** `/opsx:*` and `/loop:qa` via runner IP (internal) |
 
-| Host | Agent Canvas role | Orchestrator uses it? |
-|------|-------------------|----------------------|
-| Control plane | UI via ngrok (`https://<domain>/`) for manual access | **No** — not where workflow messages go |
-| Per-ticket runner VM | One Canvas per Jira ticket on `:8000` | **Yes** — `ensureRunner` + `dispatchCommand` in `orchestrator/src/workflow-engine.ts` |
+Users open **one URL** per ticket: `https://<ngrok>/tickets/PMM-12345/chat`. Bootstrap registers the sandbox as a Canvas backend at `/sandbox/PMM-12345/` (same-origin proxy) and opens the conversation on the main UI.
 
-When a ticket moves through the workflow, the orchestrator provisions a dedicated Linode runner and sends `/opsx:*` prompts to **that runner's** Canvas URL (`http://<runner-ip>:8000`), not the control plane chat.
+ACP runs on the **control plane only** — not on sandbox runners.
 
-**Target / future architecture:**
-
-- **One** conversation on control plane Canvas per ticket.
-- Runners act as **sandboxes only** (workspace isolation, no separate chat UI).
-- Orchestrator would dispatch to control plane Canvas instead of per-runner Canvas.
-
-That consolidation is not implemented yet; the runner-per-chat model is intentional for the current sandbox-isolation POC.
+See [sandbox-lifecycle.md](./sandbox-lifecycle.md) and [architecture-target.md](./architecture-target.md).
 
 ## Verify on the VM
 

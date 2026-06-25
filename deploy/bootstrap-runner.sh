@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One runner Linode per ticket/chat: Agent Canvas + repo workspace on the VM (no Docker).
+# Sandbox runner: backend-only Agent Canvas + PMM workspace (no UI, no ACP on runner).
 set -euo pipefail
 
 DEST="${BOOTSTRAP_DEST:-/opt/pmm-agentic-flow/src}"
@@ -11,8 +11,7 @@ source "$ENV_FILE"
 set +a
 
 PUBLIC_IP="$(curl -4 -fsSL https://ifconfig.me/ip 2>/dev/null || curl -4 -fsSL https://ipv4.icanhazip.com)"
-sed -i "s|__RUNNER_IP__|$PUBLIC_IP|g" "$ENV_FILE"
-export AGENT_CANVAS_PUBLIC_URL="http://${PUBLIC_IP}:8000"
+sed -i "s|__RUNNER_IP__|$PUBLIC_IP|g" "$ENV_FILE" 2>/dev/null || true
 
 bash "$DEST/deploy/install-runner.sh"
 
@@ -27,4 +26,4 @@ systemctl enable agent-canvas
 systemctl restart agent-canvas
 sleep 5
 
-echo "[bootstrap-runner] ready http://${PUBLIC_IP}:8000/ ticket=${TICKET_KEY:-unknown}"
+echo "[bootstrap-runner] sandbox backend ready ticket=${TICKET_KEY:-unknown} ip=${PUBLIC_IP}"

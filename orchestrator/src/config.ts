@@ -79,7 +79,9 @@ const stackConfigSchema = z.object({
     phases: z.array(z.string()),
   }),
   sandbox: z.object({
-    mode: z.enum(["runner_per_chat"]).default("runner_per_chat"),
+    mode: z
+      .enum(["runner_per_chat", "central_ui_remote_sandbox"])
+      .default("central_ui_remote_sandbox"),
     ttl_hours: z.number().default(72),
     keep_warm_until: z.string().default("ready_for_merge"),
     workspace_root: z.string().default("/projects"),

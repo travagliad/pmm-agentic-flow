@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Chat runner: one Linode VM = one chat. Agent Canvas on host (process sandbox), no Docker.
+# Sandbox runner: backend-only Agent Canvas + PMM workspace (no UI, no ACP).
 # https://docs.openhands.dev/openhands/usage/agent-canvas/backend-setup/vm
 set -euo pipefail
 
@@ -18,7 +18,7 @@ if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.v
   "${APT_INSTALL[@]}" nodejs
 fi
 
-bash "$(dirname "$0")/install-agent-canvas.sh" /etc/pmm-agentic-flow/runner.env
+bash "$(dirname "$0")/install-agent-canvas-backend.sh" /etc/pmm-agentic-flow/runner.env
 
 node --version
 uv --version

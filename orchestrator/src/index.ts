@@ -1,6 +1,8 @@
 import express from "express";
 import { z } from "zod";
+import { chatBootstrapHtml } from "./chat-bootstrap.js";
 import { loadEnv, loadJiraWorkflow, loadStackConfig } from "./config.js";
+import { attachSandboxProxy } from "./sandbox-proxy.js";
 import { WorkflowEngine } from "./workflow-engine.js";
 
 const transitionSchema = z.object({
@@ -52,7 +54,7 @@ function main() {
 
   const api = express.Router();
   api.get("/health", (_req, res) => {
-    res.json({ ok: true, trigger: stack.lifecycle.trigger });
+    res.json({ ok: true, trigger: stack.lifecycle.trigger, sandboxMode: stack.sandbox.mode });
   });
 
   api.get("/tickets", auth, (_req, res) => {
@@ -116,6 +118,18 @@ function main() {
 
   app.use("/orchestrator", api);
 
+  app.get("/tickets/:key/chat", (req, res) => {
+    const key = String(req.params.key).toUpperCase();
+    const ticket = engine.getTicket(key);
+    if (!ticket) {
+      res.status(404).send(`Ticket ${key} not found.`);
+      return;
+    }
+    res.type("html").send(chatBootstrapHtml(ticket, env));
+  });
+
+  const { attachUpgrade } = attachSandboxProxy(app, (key) => engine.getTicket(key));
+
   app.post("/hooks/jira", async (req, res) => {
     if (env.jiraWebhookSecret) {
       const secret = req.header("x-webhook-secret");
@@ -148,14 +162,18 @@ function main() {
     }
   });
 
-  app.listen(env.orchestratorPort, () => {
+  const server = app.listen(env.orchestratorPort, () => {
     console.log(`Orchestrator listening on :${env.orchestratorPort}`);
     console.log(`Dev repo: ${stack.dev.repository}`);
     console.log(`QA repo: ${stack.qa.repository}`);
+    console.log(`Sandbox mode: ${stack.sandbox.mode}`);
+    console.log(`Canvas UI: ${env.agentCanvasPublicUrl}`);
     console.log(`Jira webhook: POST /hooks/jira`);
     console.log(`Health: GET /orchestrator/health`);
     console.log(`Transition: POST /orchestrator/tickets/transition`);
   });
+
+  attachUpgrade(server);
 }
 
 main();
