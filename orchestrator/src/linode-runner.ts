@@ -33,7 +33,18 @@ export class LinodeRunnerClient {
       throw new Error("WORKER_ROOT_PASSWORD required to create runner Linodes");
     }
 
-    const label = `run-${ticketKey.toLowerCase()}`.slice(0, 32);
+    const label = runnerLabel(ticketKey);
+    const existing = await this.findRunnerByLabel(label);
+    if (existing) {
+      const ip = existing.ipv4?.[0] ?? (await this.waitForIp(existing.id));
+      return {
+        linodeId: existing.id,
+        ip,
+        canvasBaseUrl: `http://${ip}:8000`,
+        canvasPublicUrl: `http://${ip}:8000`,
+      };
+    }
+
     const userData = this.buildCloudInit(ticketKey);
 
     const res = await fetch("https://api.linode.com/v4/linode/instances", {
@@ -51,7 +62,20 @@ export class LinodeRunnerClient {
     });
 
     if (!res.ok) {
-      throw new Error(`Linode create failed (${res.status}): ${await res.text()}`);
+      const body = await res.text();
+      if (res.status === 400 && body.includes("Label must be unique")) {
+        const retry = await this.findRunnerByLabel(label);
+        if (retry) {
+          const ip = retry.ipv4?.[0] ?? (await this.waitForIp(retry.id));
+          return {
+            linodeId: retry.id,
+            ip,
+            canvasBaseUrl: `http://${ip}:8000`,
+            canvasPublicUrl: `http://${ip}:8000`,
+          };
+        }
+      }
+      throw new Error(`Linode create failed (${res.status}): ${body}`);
     }
 
     const created = (await res.json()) as { id: number };
@@ -140,12 +164,30 @@ runcmd:
 `;
   }
 
+  private async findRunnerByLabel(
+    label: string,
+  ): Promise<{ id: number; ipv4?: string[]; status?: string } | undefined> {
+    const res = await fetch("https://api.linode.com/v4/linode/instances", {
+      headers: {
+        ...this.headers(),
+        "X-Filter": JSON.stringify({ "+and": [{ label }] }),
+      },
+    });
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { data?: Array<{ id: number; ipv4?: string[]; status?: string }> };
+    return data.data?.[0];
+  }
+
   private headers(): Record<string, string> {
     return {
       Authorization: `Bearer ${this.env.linodeToken}`,
       "Content-Type": "application/json",
     };
   }
+}
+
+function runnerLabel(ticketKey: string): string {
+  return `run-${ticketKey.toLowerCase()}`.slice(0, 32);
 }
 
 function sleep(ms: number) {
