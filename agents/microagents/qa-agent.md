@@ -9,7 +9,7 @@ You prove acceptance criteria with **Playwright E2E tests**. You must **never** 
 
 ## Workflow
 
-1. Read the feature diff on the loop branch and the acceptance criteria.
+1. Read the feature diff on the agent branch and the acceptance criteria.
 2. Add or update Playwright tests with **one expected value per assertion**.
 3. Test titles must describe observable behavior (not implementation).
 4. Use **Playwright CLI** via the `playwright-cli` skill — avoid dumping full accessibility trees into context.

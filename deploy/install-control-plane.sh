@@ -26,6 +26,9 @@ if [ -n "${NGROK_AUTHTOKEN:-}" ]; then
   HOME=/root ngrok config add-authtoken "$NGROK_AUTHTOKEN"
 fi
 
+bash "$(dirname "$0")/install-gh-cli.sh"
+bash "$(dirname "$0")/install-build-tools.sh"
+
 mkdir -p /var/lib/pmm-agentic-flow/orchestrator
 bash "$(dirname "$0")/install-agent-canvas.sh" /etc/pmm-agentic-flow/env
 echo "[install-control-plane] node $(node --version)"

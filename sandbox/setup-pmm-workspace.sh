@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# PMM multi-repo workspace bootstrap for OpenHands sandboxes.
+# PMM multi-repo workspace bootstrap for agent sandboxes.
 set -euo pipefail
 
-PMM_DIR="${PMM_DIR:-/workspace/pmm}"
-PMM_QA_DIR="${PMM_QA_DIR:-/workspace/pmm-qa}"
-LOOP_DIR="${LOOP_DIR:-/workspace/.loop}"
+PMM_DIR="${PMM_DIR:-/projects/pmm}"
+PMM_QA_DIR="${PMM_QA_DIR:-/projects/pmm-qa}"
+AGENT_STATE_DIR="${AGENT_STATE_DIR:-/projects/.agent}"
 PMM_REPO="${PMM_REPO:-https://github.com/percona/pmm.git}"
 PMM_QA_REPO="${PMM_QA_REPO:-https://github.com/percona/pmm-qa.git}"
 PMM_BRANCH="${PMM_BRANCH:-main}"
 TICKET_KEY="${TICKET_KEY:-}"
 CHANGE_ID="${CHANGE_ID:-}"
 
-mkdir -p "$LOOP_DIR"
+mkdir -p "$AGENT_STATE_DIR"
 
 clone_repo() {
   local url="$1" dir="$2" branch="$3"
@@ -31,7 +31,7 @@ echo "==> Cloning PMM QA repo"
 clone_repo "$PMM_QA_REPO" "$PMM_QA_DIR" "main"
 
 if [ -n "$TICKET_KEY" ] && [ -n "$CHANGE_ID" ]; then
-  FEATURE_BRANCH="loop/${TICKET_KEY}-${CHANGE_ID#${TICKET_KEY}-}"
+  FEATURE_BRANCH="agent/${TICKET_KEY}-${CHANGE_ID#${TICKET_KEY}-}"
   git -C "$PMM_DIR" checkout -B "$FEATURE_BRANCH"
 fi
 
@@ -45,8 +45,8 @@ if [ ! -d "$PMM_DIR/openspec" ]; then
   fi
 fi
 
-echo "==> Initial loop state"
-STATE_FILE="$LOOP_DIR/state.json"
+echo "==> Initial agent state"
+STATE_FILE="$AGENT_STATE_DIR/state.json"
 if [ ! -f "$STATE_FILE" ]; then
   cat >"$STATE_FILE" <<EOF
 {
@@ -63,8 +63,9 @@ if [ ! -f "$STATE_FILE" ]; then
 EOF
 fi
 
-echo "==> PMM framework (manual/agent step)"
-echo "    Agent must run: python3 $PMM_QA_DIR/qa-integration/pmm-framework.py"
+echo "==> PMM test environment (In QA only)"
+echo "    Do NOT run on In Progress — orchestrator starts FB + runner on In QA."
+echo "    When in QA: python3 $PMM_QA_DIR/qa-integration/pmm-framework.py"
 echo "    Read: $PMM_QA_DIR/qa-integration/pmm_qa/README.md"
 
 echo "Workspace ready: $PMM_DIR + $PMM_QA_DIR"

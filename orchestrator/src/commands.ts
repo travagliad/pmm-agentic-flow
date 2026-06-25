@@ -20,19 +20,37 @@ export function changeIdForTicket(ticketKey: string, summary?: string): string {
   return `${ticketKey.toUpperCase()}-${slug}`;
 }
 
+export function prTitleForTicket(ticketKey: string, summary?: string): string {
+  const raw = summary?.trim() ?? "Change";
+  const cleaned = raw
+    .replace(/^\[[^\]]+\]\s*/i, "")
+    .replace(/^openspec:\s*/i, "")
+    .trim();
+  return `${ticketKey.toUpperCase()}: ${cleaned || "Change"}`;
+}
+
+export function featureBranchForTicket(ticketKey: string, changeId: string): string {
+  const slug = changeId.replace(new RegExp(`^${ticketKey}-`, "i"), "");
+  return `agent/${ticketKey.toUpperCase()}-${slug}`;
+}
+
 export function buildProposePrompt(
   ticket: TicketRecord,
   config: StackConfig,
   ctx: IssueContext,
 ): string {
   const changeId = ticket.changeId ?? changeIdForTicket(ticket.ticketKey, ctx.summary);
+  const branch = featureBranchForTicket(ticket.ticketKey, changeId);
+  const prTitle = prTitleForTicket(ticket.ticketKey, ctx.summary);
   return [
     "/opsx:propose " + ticket.ticketKey,
     "",
-    "You are the Loop Controller. Follow loop-controller.md microagent.",
+    "You are the Agent Controller. Follow agent-controller.md microagent.",
     "",
     `Ticket: ${ticket.ticketKey}`,
     `Change ID: ${changeId}`,
+    `Feature branch: ${branch}`,
+    `PR title: ${prTitle}`,
     `Dev repo: ${config.dev.repository}`,
     "",
     "Phase: SPEC_DRAFT",
@@ -40,9 +58,9 @@ export function buildProposePrompt(
     "Tasks:",
     "1. Run workspace setup if needed (see sandbox setup script in repo).",
     "2. Create openspec/changes/<changeId>/ with proposal.md, specs/, design.md, tasks.md.",
-    "3. Use Jira context below for requirements.",
-    "4. Branch loop/<ticket>-<slug>; commit spec files only.",
-    "5. Open DRAFT PR on percona/pmm (spec only).",
+    "3. Use Atlassian MCP for Jira fields — do not scrape Jira in the browser.",
+    `4. Branch ${branch}; commit spec files only.`,
+    `5. Open DRAFT PR on percona/pmm titled exactly: ${prTitle}`,
     "6. Output JIRA_UPDATE block with spec_pr URL.",
     "",
     ctx.summary ? `Summary: ${ctx.summary}` : "",
@@ -59,31 +77,37 @@ export function buildApplyPrompt(
   ctx: IssueContext,
 ): string {
   const changeId = ticket.changeId ?? changeIdForTicket(ticket.ticketKey, ctx.summary);
+  const branch = featureBranchForTicket(ticket.ticketKey, changeId);
+  const prTitle = prTitleForTicket(ticket.ticketKey, ctx.summary);
   return [
     "/opsx:apply",
     "",
-    "You are the Loop Controller in DEV + BUILD mode. Follow dev-agent.md.",
+    "You are the Agent Controller in DEV + BUILD mode. Follow dev-agent.md.",
     "",
     `Ticket: ${ticket.ticketKey}`,
     `Change ID: ${changeId}`,
+    `Feature branch: ${branch}`,
+    `PR title: ${prTitle}`,
     `Phase: IN_PROGRESS`,
     "",
-    "Dev environment (local build — like a developer laptop):",
-    "1. Clone /workspace/pmm and /workspace/pmm-qa if missing.",
-    "2. Run sandbox/setup-pmm-workspace.sh on the feature branch.",
+    "Dev environment (local build on control plane — like a developer laptop):",
+    "1. Work in /projects/pmm and /projects/pmm-qa.",
+    "2. Run sandbox/setup-pmm-workspace.sh on the feature branch if needed.",
     "3. Do NOT run pmm-framework.py or start PMM Server FB — QA gets FB on In QA.",
-    "4. Optional: ensure pmm-submodules PR exists so Jenkins can publish FB images.",
+    "4. Use gh CLI for PRs; Atlassian MCP for Jira — both preconfigured on the host.",
+    "5. Optional: open Percona-Lab/pmm-submodules PR so Jenkins can publish FB images.",
     "",
-    "Build loop (repeat until green or max retries):",
+    "Build iterations (repeat until green or max retries):",
     `  implement tasks from openspec/changes/${changeId}/tasks.md`,
     `  run: ${config.dev.build_command}`,
-    "  if build fails → fix code → rebuild",
-    "  increment buildIteration in state.json each cycle",
+    "  if build fails → fix code → rebuild (install make/go/node if missing)",
+    "  increment buildIteration in /projects/.agent/state.json each cycle",
+    "  do NOT treat partial go test as done if make build was not run",
     "",
     "Rules:",
     "- Edit pmm (or grafana) application code ONLY.",
     "- Do NOT write pmm-qa tests yet.",
-    "- Push to feature branch; open/update dev PR and pmm-submodules PR when ready.",
+    `- Push to ${branch}; open/update dev PR titled: ${prTitle}`,
     "- Output JIRA_UPDATE with dev_pr (and submodules PR if opened).",
     "",
     ticket.fbServerImage
@@ -98,9 +122,9 @@ export function buildApplyPrompt(
 
 export function buildQaPrompt(ticket: TicketRecord, config: StackConfig, ctx: IssueContext): string {
   return [
-    "/loop:qa",
+    "/agent:qa",
     "",
-    "You are the Loop Controller in QA mode. Follow qa-agent.md.",
+    "You are the Agent Controller in QA mode. Follow qa-agent.md.",
     "",
     `Ticket: ${ticket.ticketKey}`,
     `Change ID: ${ticket.changeId}`,
@@ -119,7 +143,7 @@ export function buildQaPrompt(ticket: TicketRecord, config: StackConfig, ctx: Is
     "Tasks:",
     "1. Map OpenSpec scenarios to Playwright tests in pmm-qa.",
     "2. Run tests; collect trace/video/HTML report.",
-    "3. Dev/QA loop if tests expose dev bugs: report in chat — do NOT patch pmm code.",
+    "3. If tests expose dev bugs: report in chat — do NOT patch pmm code.",
     "4. Output JIRA_UPDATE with artifact paths.",
     "",
     ctx.acceptanceCriteria ? `Acceptance criteria:\n${ctx.acceptanceCriteria}` : "",
@@ -130,7 +154,7 @@ export function buildQaPrompt(ticket: TicketRecord, config: StackConfig, ctx: Is
 
 export function buildFinalizePrompt(ticket: TicketRecord, config: StackConfig): string {
   return [
-    "/loop:finalize",
+    "/agent:finalize",
     "",
     "Phase: READY_FOR_MERGE",
     "",

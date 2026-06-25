@@ -54,7 +54,7 @@ openspec:
   require_spec_approval: true
 
 agents:
-  controller: agents/microagents/loop-controller.md
+  controller: agents/microagents/agent-controller.md
   dev:
     microagent: agents/microagents/dev-agent.md
     max_iterations: 80

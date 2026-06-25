@@ -14,6 +14,8 @@ PUBLIC_IP="$(curl -4 -fsSL https://ifconfig.me/ip 2>/dev/null || curl -4 -fsSL h
 sed -i "s|__RUNNER_IP__|$PUBLIC_IP|g" "$ENV_FILE" 2>/dev/null || true
 
 bash "$DEST/deploy/install-runner.sh"
+bash "$DEST/deploy/install-gh-cli.sh"
+bash "$DEST/deploy/install-build-tools.sh"
 
 if [ -n "${GITHUB_TOKEN:-}" ]; then
   export PMM_DIR=/projects/pmm PMM_QA_DIR=/projects/pmm-qa TICKET_KEY="${TICKET_KEY:-}"

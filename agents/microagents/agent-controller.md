@@ -1,6 +1,6 @@
-# Loop Controller
+# Agent Controller
 
-You orchestrate **one Jira ticket per conversation**. Read and update `/workspace/.loop/state.json` on every turn.
+You orchestrate **one Jira ticket per conversation**. Read and update `/projects/.agent/state.json` on every turn.
 
 ## State file
 
@@ -26,9 +26,9 @@ Phases: `SPEC_DRAFT` | `SPEC_REVIEW` | `IN_PROGRESS` | `IN_REVIEW` | `IN_QA` | `
 |---------|--------|
 | `/opsx:explore` | Optional discovery — no PR |
 | `/opsx:propose <TICKET>` | Create OpenSpec; **spec-only draft PR** on `percona/pmm` |
-| `/opsx:apply` | Setup workspace + PMM env **once**; **build loop**; dev PR |
-| `/loop:qa` | QA on `pmm-qa` only; use existing env |
-| `/loop:finalize` | Full suite; `pmm-qa` PR; archive; signal teardown |
+| `/opsx:apply` | Setup workspace; **build until green**; dev PR |
+| `/agent:qa` | QA on `pmm-qa` with FB images on sandbox runner |
+| `/agent:finalize` | Full suite; `pmm-qa` PR; archive; signal teardown |
 | `/opsx:archive` | Fold specs into main tree after merge |
 
 Natural-language review feedback applies to the **current phase** without crossing repo boundaries.
@@ -39,15 +39,14 @@ On first `/opsx:apply`:
 
 ```bash
 export TICKET_KEY=<ticket> CHANGE_ID=<changeId>
-/opt/pmm-agentic-flow/sandbox/setup-pmm-workspace.sh
-# or sandbox/setup-pmm-workspace.sh if mounted in workspace
+/opt/pmm-agentic-flow/src/sandbox/setup-pmm-workspace.sh
 ```
 
-Then provision PMM via `pmm-framework.py` (see `pmm-qa/qa-integration/pmm_qa/README.md`).
+**In Progress:** local `make build` on the control plane — **do not** run `pmm-framework.py` or start FB PMM.
 
-**Do not tear down** the environment until `/loop:finalize`.
+**In QA:** orchestrator provisions a sandbox runner; use FB images + `pmm-framework.py` there (see `qa-agent.md`).
 
-## Build loop (In Progress)
+## Build iterations (In Progress)
 
 Repeat until `make build` (or repo-specific build) passes:
 
@@ -57,22 +56,28 @@ Repeat until `make build` (or repo-specific build) passes:
 4. Increment `buildIteration` in state.json
 5. Push commits to feature branch
 
+If `make` or toolchain is missing, install via `apt` / repo docs — **do not** skip full build and report success.
+
 Max build iterations: 5 (then stop and report blockers).
+
+## PR titles
+
+See `docs/agent-conventions.md`. Example: `PMM-15167: Real-Time Query Analytics for PostgreSQL` — no brackets, no `OpenSpec:` prefix.
+
+Use `gh` CLI (pre-authenticated on the host) for PRs. Use Atlassian MCP for Jira fields — not browser scraping.
 
 ## Access links for humans (In Progress + In Review)
 
-After PMM env is up, output a **JIRA_UPDATE** block:
+After dev build is green, output a **JIRA_UPDATE** block:
 
 ```text
 JIRA_UPDATE:
   spec_pr: <url or empty>
   dev_pr: <url>
-  test_instance: <PMM HTTPS URL>
-  ssh_access: <SSH URL from OpenHands sandbox exposed URLs>
+  test_instance: <empty in In Progress — FB starts in In QA>
+  ssh_access: <empty until In QA runner>
   conversation: <OpenHands conversation URL>
 ```
-
-The orchestrator posts these to Jira. **In Review** reuses the same sandbox — links stay valid.
 
 ## Repo rules
 
@@ -88,8 +93,3 @@ The orchestrator posts these to Jira. **In Review** reuses the same sandbox — 
 - QA wrong → edit tests only in `pmm-qa`
 
 Never fix dev failures by editing tests to pass.
-
-## Explore and archive
-
-- **Explore:** optional per ticket when requirements are unclear
-- **Archive:** required once after merge (`/opsx:archive`)

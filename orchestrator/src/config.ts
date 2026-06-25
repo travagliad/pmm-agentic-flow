@@ -69,7 +69,7 @@ const stackConfigSchema = z.object({
     require_spec_approval: z.boolean().default(true),
   }),
   agents: z.object({
-    controller: z.string().default("agents/microagents/loop-controller.md"),
+    controller: z.string().default("agents/microagents/agent-controller.md"),
     loop_controller: z.string().optional(),
     dev: z.object({ microagent: z.string(), max_iterations: z.number().default(80) }),
     qa: z.object({ microagent: z.string(), max_iterations: z.number().default(40) }),

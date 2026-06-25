@@ -21,8 +21,8 @@ jira:
 commands:
   ready_for_refinement: "/opsx:propose {ticketKey}"
   in_progress: "/opsx:apply"
-  in_qa: "/loop:qa"
-  ready_for_merge: "/loop:finalize"
+  in_qa: "/agent:qa"
+  ready_for_merge: "/agent:finalize"
   on_merge: "/opsx:archive"
 
 access_links:

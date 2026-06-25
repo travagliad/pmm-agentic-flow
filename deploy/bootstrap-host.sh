@@ -43,6 +43,15 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   fi
 fi
 
+bash "$DEST/deploy/configure-agent-mcp.sh" "$ENV_FILE"
+
+if [ -n "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
+  echo "$GITHUB_TOKEN" | gh auth login --with-token 2>/dev/null || true
+  if id agentcanvas >/dev/null 2>&1; then
+  su - agentcanvas -c "echo '$GITHUB_TOKEN' | gh auth login --with-token" 2>/dev/null || true
+  fi
+fi
+
 install -m 0755 "$DEST/deploy/agent-canvas-start.sh" /opt/pmm-agentic-flow/agent-canvas-start.sh
 install -m 0755 "$DEST/deploy/wait-for-http.sh" /opt/pmm-agentic-flow/wait-for-http.sh
 install -m 0644 "$DEST/deploy/systemd/agent-canvas-control-plane.service" /etc/systemd/system/agent-canvas.service
