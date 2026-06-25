@@ -1,0 +1,14 @@
+[Unit]
+Description=ngrok tunnel to local ingress
+After=network-online.target ingress.service
+Requires=ingress.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/pmm-agentic-flow/env
+ExecStart=/usr/bin/ngrok http 8787 --url=${NGROK_DOMAIN}
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

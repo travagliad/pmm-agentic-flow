@@ -4,14 +4,9 @@ Spec-driven PMM automation on a **Linode VM** — not on your laptop.
 
 ---
 
-## Do not run Docker locally
+## Do not run the stack locally
 
-```bash
-# WRONG — stack runs on Linode only
-cd deploy && docker compose up -d --build
-```
-
-If you already did: [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md#if-you-already-ran-it-locally-by-mistake)
+The control plane is provisioned by **Terraform on Linode** only. See [docs/GETTING-STARTED.md](./docs/GETTING-STARTED.md).
 
 ---
 
@@ -41,7 +36,7 @@ Open `http://<public_ip>:8000/` after cloud-init (~5 min).
 | [GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Checklist — deploy on Linode |
 | [deploy-linode.md](./docs/deploy-linode.md) | Terraform, cloud-init, updates |
 | [llm-acp.md](./docs/llm-acp.md) | Cursor/Copilot CLIs via Terraform |
-| [workflow.md](./docs/workflow.md) | Jira ↔ OpenSpec ↔ agents |
+| [architecture-faq.md](./docs/architecture-faq.md) | systemd vs tmux, Docker, orchestrator, ngrok, users |
 
 ---
 

@@ -12,6 +12,32 @@ provider "linode" {
   token = var.linode_token
 }
 
+locals {
+  use_ngrok             = var.ngrok_domain != ""
+  expose_ports_directly = local.use_ngrok ? false : var.expose_ports_directly
+  public_url_placeholder = local.use_ngrok ? var.ngrok_domain : "http://__PUBLIC_IP__:8000"
+  public_ipv4 = one([
+    for addr in sort(tolist(linode_instance.loop_host.ipv4)) : addr
+    if !startswith(addr, "192.168.")
+  ])
+  app_url      = local.use_ngrok ? var.ngrok_domain : "http://${local.public_ipv4}:8000/"
+  jira_webhook = local.use_ngrok ? "${trim(var.ngrok_domain, "/")}/hooks/jira" : "http://${local.public_ipv4}:8080/hooks/jira"
+  next_steps_ngrok = <<-EOT
+    1. Wait ~8 min for cloud-init (npm install + Agent Canvas)
+    2. Open: ${var.ngrok_domain}
+    3. Enter LOCAL_BACKEND_API_KEY from terraform.tfvars (agent_canvas_api_key)
+    4. Jira webhook: ${trim(var.ngrok_domain, "/")}/hooks/jira
+    5. SSH (admin only): ssh root@${local.public_ipv4}
+  EOT
+  next_steps_direct = <<-EOT
+    1. Wait ~8 min for cloud-init
+    2. Open: http://${local.public_ipv4}:8000/
+    3. Set ngrok_domain + ngrok_authtoken in tfvars for a stable public URL
+    4. Jira webhook: http://${local.public_ipv4}:8080/hooks/jira
+  EOT
+  next_steps = local.use_ngrok ? local.next_steps_ngrok : local.next_steps_direct
+}
+
 resource "linode_instance" "loop_host" {
   label            = var.label
   region           = var.region
@@ -39,8 +65,20 @@ resource "linode_instance" "loop_host" {
       worker_root_password    = var.worker_root_password
       worker_linode_type      = var.worker_linode_type
       worker_linode_region    = var.worker_linode_region
+      ngrok_authtoken         = var.ngrok_authtoken
+      ngrok_domain            = var.ngrok_domain
+      expose_ports_directly   = local.expose_ports_directly
+      public_url_placeholder  = local.public_url_placeholder
     }))
   }
+}
+
+resource "linode_volume" "data" {
+  count     = var.data_volume_size > 0 ? 1 : 0
+  label     = "${var.label}-data"
+  region    = var.region
+  size      = var.data_volume_size
+  linode_id = linode_instance.loop_host.id
 }
 
 resource "linode_firewall" "loop" {
@@ -55,33 +93,31 @@ resource "linode_firewall" "loop" {
     ipv6     = var.admin_cidrs_v6
   }
 
-  inbound {
-    label    = "allow-agent-canvas"
-    action   = "ACCEPT"
-    protocol = "TCP"
-    ports    = "8000"
-    ipv4     = ["0.0.0.0/0"]
+  dynamic "inbound" {
+    for_each = local.expose_ports_directly ? [1] : []
+    content {
+      label    = "allow-agent-canvas"
+      action   = "ACCEPT"
+      protocol = "TCP"
+      ports    = "8000"
+      ipv4     = ["0.0.0.0/0"]
+    }
   }
 
-  inbound {
-    label    = "allow-orchestrator"
-    action   = "ACCEPT"
-    protocol = "TCP"
-    ports    = "8080"
-    ipv4     = ["0.0.0.0/0"]
+  dynamic "inbound" {
+    for_each = local.expose_ports_directly ? [1] : []
+    content {
+      label    = "allow-orchestrator"
+      action   = "ACCEPT"
+      protocol = "TCP"
+      ports    = "8080"
+      ipv4     = ["0.0.0.0/0"]
+    }
   }
 
   inbound_policy  = "DROP"
   outbound_policy = "ACCEPT"
   linodes         = [linode_instance.loop_host.id]
-}
-
-# ip_address on linode_instance is deprecated (provider >=2.x, removal planned in v3).
-locals {
-  public_ipv4 = one([
-    for addr in sort(tolist(linode_instance.loop_host.ipv4)) : addr
-    if !startswith(addr, "192.168.")
-  ])
 }
 
 output "instance_id" {
@@ -90,7 +126,12 @@ output "instance_id" {
 
 output "public_ip" {
   value       = local.public_ipv4
-  description = "Primary public IPv4 (from linode_instance.ipv4)."
+  description = "Primary public IPv4 (SSH only when ngrok is enabled)."
+}
+
+output "data_volume_id" {
+  value       = var.data_volume_size > 0 ? linode_volume.data[0].id : null
+  description = "Detach and reattach this volume to migrate chats to a new Linode."
 }
 
 output "ssh_command" {
@@ -98,25 +139,19 @@ output "ssh_command" {
 }
 
 output "app_url" {
-  value       = "http://${local.public_ipv4}:8000/"
-  description = "Agent Canvas UI (direct HTTP, no reverse proxy)."
+  value       = local.app_url
+  description = "Agent Canvas URL (ngrok domain or direct IP)."
 }
 
 output "jira_webhook_url" {
-  value = "http://${local.public_ipv4}:8080/hooks/jira"
+  value = local.jira_webhook
 }
 
 output "next_steps" {
-  value = <<-EOT
-    1. Wait ~5 min for cloud-init
-    2. SSH: ssh root@${local.public_ipv4}
-    3. Open: http://${local.public_ipv4}:8000/
-    4. Jira webhook: http://${local.public_ipv4}:8080/hooks/jira
-    5. API key: grep AGENT_CANVAS_API_KEY /etc/pmm-agentic-flow/env
-  EOT
+  value = local.next_steps
 }
 
 output "openhands_url" {
-  value       = "http://${local.public_ipv4}:8000/"
-  description = "Deprecated alias for app_url."
+  value       = local.app_url
+  description = "Alias for app_url."
 }

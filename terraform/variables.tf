@@ -77,15 +77,15 @@ variable "agent_canvas_version" {
 }
 
 variable "openhands_api_key" {
-  type      = string
-  sensitive = true
-  default   = ""
+  type        = string
+  sensitive   = true
+  default     = ""
   description = "Deprecated alias for agent_canvas_api_key."
 }
 
 variable "orchestrator_api_key" {
-  type      = string
-  sensitive = true
+  type        = string
+  sensitive   = true
   description = "Protects orchestrator API + Jira webhook (x-api-key header)."
 }
 
@@ -117,6 +117,31 @@ variable "cursor_api_key" {
   default   = ""
 }
 
+variable "ngrok_authtoken" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "ngrok authtoken. When set with ngrok_domain, Canvas is reached via ngrok (port 8000 not exposed)."
+}
+
+variable "ngrok_domain" {
+  type        = string
+  default     = ""
+  description = "ngrok static domain, e.g. https://your-app.ngrok-free.app"
+}
+
+variable "expose_ports_directly" {
+  type        = bool
+  default     = false
+  description = "Open Linode firewall :8000/:8080. Ignored when ngrok_domain is set."
+}
+
+variable "data_volume_size" {
+  type        = number
+  default     = 50
+  description = "GB Linode block volume for chats/settings. Set 0 to disable. Detach and reattach to migrate Linodes."
+}
+
 variable "worker_root_password" {
   type        = string
   sensitive   = true
@@ -135,7 +160,7 @@ variable "worker_linode_region" {
 }
 
 variable "openhands_version" {
-  type    = string
-  default = ""
+  type        = string
+  default     = ""
   description = "Deprecated — ignored."
 }

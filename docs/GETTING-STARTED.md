@@ -1,172 +1,76 @@
-# Getting started — test on Linode (not your PC)
+# Getting started — Terraform only
 
-> **Do not run** `docker compose` on your laptop for this project.  
-> That installs OpenHands + nested sandboxes **locally** and is not the intended setup.
+Everything runs on **Linode**. Your PC only runs `terraform apply`.
 
----
-
-## If you already ran it locally by mistake
-
-**Windows (PowerShell):**
-
-```powershell
-cd C:\Users\davi_\vscodeProjects\pmm-agentic-flow\deploy
-docker compose -p agentic-flow down -v --remove-orphans
-```
-
-**Or:**
-
-```bash
-./scripts/teardown-local.sh
-```
-
-Verify nothing `loop-*` is left:
-
-```powershell
-docker ps -a
-```
-
-Your old `pmm-server` container (if any) is unrelated — remove separately only if you do not need it:
-
-```powershell
-docker rm pmm-server   # optional
-```
+See [architecture-faq.md](./architecture-faq.md) for systemd vs OpenHands tmux, Docker sandboxes, orchestrator role, ngrok, and what end users need.
 
 ---
 
-## Checklist — ready to test (Linode)
+## Checklist
 
 ### A. One-time prep (your PC)
 
-- [ ] **GitHub:** push `pmm-agentic-flow` to a repo you control  
-  Example: `https://github.com/travagliad/pmm-agentic-flow.git`
-- [ ] **Linode:** account + [API token](https://cloud.linode.com/profile/tokens) (read/write Linodes + Firewalls)
-- [ ] **Secrets:** GitHub PAT (`repo`), random keys for `agent_canvas_api_key`, `agent_canvas_secret_key`, `orchestrator_api_key` — see [tokens-and-secrets.md](./tokens-and-secrets.md)
-- [ ] **Terraform** installed on PC: [terraform.io/downloads](https://developer.hashicorp.com/terraform/install)
+- [ ] Push this repo to GitHub (`bootstrap_repo_url` in tfvars)
+- [ ] Linode API token
+- [ ] Fill `terraform/terraform.tfvars` from `terraform.tfvars.example` — see [tokens-and-secrets.md](./tokens-and-secrets.md)
+- [ ] **Recommended:** `ngrok_authtoken` + `ngrok_domain` (stable HTTPS URL)
+- [ ] **Recommended:** `admin_cidrs = ["YOUR.PUBLIC.IP/32"]` (SSH only)
 
-### B. Deploy the server (your PC → creates Linode)
+### B. Deploy
 
 ```powershell
-cd C:\Users\davi_\vscodeProjects\pmm-agentic-flow\terraform
+cd terraform
 copy terraform.tfvars.example terraform.tfvars
-notepad terraform.tfvars   # fill ALL values — especially bootstrap_repo_url
-```
-
-Required in `terraform.tfvars`:
-
-| Variable | Example |
-|----------|---------|
-| `linode_token` | Linode API token |
-| `root_password` | Strong password for SSH |
-| `bootstrap_repo_url` | Your GitHub repo URL |
-| `github_token` | `ghp_...` |
-| `cursor_api_key` | Cursor dashboard API key |
-| `github_copilot_token` | `gho_...` (optional) |
-| `admin_cidrs` | See [Why your IP?](#why-admin_cidrs-your-public-ip) below |
-
-#### Why `admin_cidrs` (your public IP)?
-
-This is **not** for running the stack on your PC. Everything (OpenHands, agents, sandboxes) runs on the **Linode**.
-
-`admin_cidrs` only controls **who may SSH into the Linode** (port 22) via the Linode firewall Terraform creates:
-
-| Value | Meaning |
-|-------|---------|
-| `["YOUR.PUBLIC.IP/32"]` | Only you can SSH to the server (recommended) |
-| `["0.0.0.0/0"]` | Anyone on the internet can try SSH (OK for quick POC, weaker) |
-
-Your **public** IP is what websites see when you browse — not `192.168.x.x`. Check: [https://ifconfig.me](https://ifconfig.me)
-
-Agent Canvas (`:8000`) and orchestrator (`:8080`) stay open to everyone — separate from SSH.
-
-```powershell
 terraform init
 terraform apply
-```
-
-Save outputs:
-
-```powershell
-terraform output public_ip
 terraform output next_steps
+terraform output app_url
 ```
 
-### C. DNS (browser access)
+Wait ~8 minutes for cloud-init (Node, uv, npm `agent-canvas`, systemd).
 
-At your DNS provider:
+### C. First login (users)
 
-```text
-loop.yourdomain.com   A   <public_ip>
-```
+1. Open `terraform output app_url`
+2. Enter `LOCAL_BACKEND_API_KEY` (= `agent_canvas_api_key` from tfvars)
+3. Settings → Agent → ACP: `/usr/local/bin/agent` + `acp` (if using Cursor)
 
-Wait 5–15 minutes for propagation.
+No install required for dev/QA/PO — browser only.
 
-### D. Verify on Linode (~5 min after apply)
+### D. Jira webhook
+
+Use `terraform output jira_webhook_url` (with ngrok: `https://<domain>/hooks/jira`).
+
+### E. Test without Jira
 
 ```powershell
-ssh root@<public_ip>
-# password = root_password from tfvars
-
-tail -f /var/log/pmm-agentic-flow-bootstrap.log
-docker ps
-curl -s localhost:8080/health
-```
-
-When DNS + TLS are ready, open in browser:
-
-```text
-https://loop.yourdomain.com/
-```
-
-### E. Trigger a test ticket (from your PC — PC can go offline after)
-
-```powershell
-$env:LOOP_BASE_URL = "https://loop.yourdomain.com"
-$env:ORCHESTRATOR_API_KEY = "<orchestrator_api_key from terraform.tfvars>"
-
-bash ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Test feature"
-```
-
-Or open OpenHands in the browser and type:
-
-```text
-/opsx:propose PMM-14915
+$env:ORCHESTRATOR_API_KEY = "<from tfvars>"
+$env:ORCHESTRATOR_BASE_URL = "http://<ip>:8080/orchestrator"
+bash ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Test"
 ```
 
 ---
 
 ## What runs where
 
-| Component | Runs on |
-|-----------|---------|
-| OpenHands, LiteLLM, Orchestrator, Caddy | **Linode 24/7** |
-| PMM sandboxes (per ticket) | **Linode** (nested Docker on the VM) |
-| Terraform apply | Your PC (minutes, once) |
-| Browser / Jira webhook | Any device; PC **not** required to stay on |
+| Component | Where |
+|-----------|--------|
+| Agent Canvas (`npm`, systemd) | Linode |
+| Orchestrator (Node, systemd) | Linode |
+| Docker | Linode — **per-chat sandboxes** + PMM on QA workers |
+| Terraform | Your PC |
+| Users | Browser → `app_url` |
 
 ---
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---------|-----|
-| `bootstrap.sslip.io` / wrong hostname | Use `terraform output loop_domain` or `bash scripts/loop-domain.sh` |
-| Connection refused on 80/443 | Stack not running — SSH in and run recovery (below) |
-| cloud-init failed | `ssh root@IP` → `tail -100 /var/log/pmm-agentic-flow-bootstrap.log` |
-| **502 Bad Gateway** on `/` | Agent Canvas not up — `docker logs loop-agent-canvas` |
-| Canvas asks for API key | Use `AGENT_CANVAS_API_KEY` from `/etc/pmm-agentic-flow/env` |
-| Legacy JWT permission errors | You are on old OpenHands 0.39 — `git pull` and migrate per [agent-canvas.md](./agent-canvas.md) |
-| litellm unhealthy (manual curl works) | `docker compose up -d --no-deps agent-canvas orchestrator caddy` |
+| Problem | Check |
+|---------|--------|
+| apply OK but URL down | Wait full 8–10 min; cloud-init log on VM: `/var/log/pmm-agentic-flow-bootstrap.log` |
+| Canvas asks API key | `agent_canvas_api_key` from tfvars |
+| ngrok not working | `ngrok_authtoken` + `ngrok_domain` both set; `systemctl status ngrok` on VM |
 
-### Recovery on the Linode (SSH)
+Re-apply after tfvars change: `terraform apply` (cloud-init only on first boot; for code updates push to git and re-run apply or SSH once to `git pull && bash deploy/bootstrap-host.sh`).
 
-```bash
-ssh root@<public_ip>
-tail -100 /var/log/pmm-agentic-flow-bootstrap.log
-docker ps
-cd /opt/pmm-agentic-flow/src/deploy
-docker compose --env-file /etc/pmm-agentic-flow/env run --rm agent-canvas-init
-docker compose --env-file /etc/pmm-agentic-flow/env up -d --build --remove-orphans
-```
-
-See also: [agent-canvas.md](./agent-canvas.md), [deploy-linode.md](./deploy-linode.md)
+See [deploy-linode.md](./deploy-linode.md), [agent-canvas.md](./agent-canvas.md).

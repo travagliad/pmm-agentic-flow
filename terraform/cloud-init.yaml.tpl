@@ -15,7 +15,7 @@ write_files:
   - path: /etc/pmm-agentic-flow/env
     permissions: "0600"
     content: |
-      AGENT_CANVAS_PUBLIC_URL=http://__PUBLIC_IP__:8000
+      AGENT_CANVAS_PUBLIC_URL=${public_url_placeholder}
       AGENT_CANVAS_VERSION=${agent_canvas_version}
       AGENT_CANVAS_API_KEY=${agent_canvas_api_key}
       LOCAL_BACKEND_API_KEY=${agent_canvas_api_key}
@@ -41,6 +41,9 @@ write_files:
       JIRA_API_TOKEN=${jira_api_token}
       JIRA_WEBHOOK_SECRET=${jira_webhook_secret}
       CURSOR_API_KEY=${cursor_api_key}
+      NGROK_AUTHTOKEN=${ngrok_authtoken}
+      NGROK_DOMAIN=${ngrok_domain}
+      EXPOSE_PORTS_DIRECTLY=${expose_ports_directly}
 
   - path: /opt/pmm-agentic-flow/bootstrap.sh
     permissions: "0755"
@@ -56,8 +59,10 @@ write_files:
 
 runcmd:
   - ufw allow OpenSSH
+%{ if expose_ports_directly ~}
   - ufw allow 8000/tcp
   - ufw allow 8080/tcp
+%{ endif ~}
   - ufw --force enable
   - mkdir -p /opt/pmm-agentic-flow /var/lib/pmm-agentic-flow/orchestrator
   - git clone ${bootstrap_repo_url} /opt/pmm-agentic-flow/src

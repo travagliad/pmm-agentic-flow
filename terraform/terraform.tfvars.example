@@ -1,8 +1,6 @@
 # Copy to terraform.tfvars and fill secrets. Never commit terraform.tfvars.
 #
-# ONLY secrets file on your PC. Cloud-init writes /etc/pmm-agentic-flow/env on the VM.
-#
-#   cd terraform && terraform init && terraform apply
+# terraform apply provisions everything — no manual Linode steps.
 
 linode_token            = "YOUR_LINODE_TOKEN"
 root_password           = "GENERATE_A_STRONG_PASSWORD"
@@ -18,10 +16,20 @@ region                  = "eu-central"
 instance_type           = "g6-standard-4"
 worker_linode_type      = "g6-standard-8"
 worker_linode_region    = "eu-central"
-admin_cidrs             = ["0.0.0.0/0"]
-admin_cidrs_v6          = ["::/0"]
+admin_cidrs             = ["YOUR.PUBLIC.IP/32"]
+admin_cidrs_v6          = []
 jira_base_url           = "https://your-org.atlassian.net"
 jira_email              = "you@example.com"
 jira_api_token          = ""
 jira_webhook_secret     = "webhook-secret-change-me"
 cursor_api_key          = ""
+
+# Stable public URL (recommended). Free static domain from ngrok dashboard.
+ngrok_authtoken         = ""
+ngrok_domain            = "" # e.g. https://pmm-agentic.ngrok-free.app
+
+# Dev only: open :8000/:8080 on Linode firewall. Ignored when ngrok_domain is set.
+expose_ports_directly   = false
+
+# Chats + orchestrator state survive Linode replace when volume is reattached.
+data_volume_size        = 50
