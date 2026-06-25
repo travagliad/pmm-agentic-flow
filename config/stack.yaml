@@ -1,3 +1,12 @@
+# Single source of truth for stack defaults.
+# Terraform tfvars / .env on the VM must match infrastructure.linode below.
+
+infrastructure:
+  linode:
+    control_plane_type: g6-standard-4
+    worker_type: g6-standard-8
+    region: eu-central
+
 dev:
   repository: percona/pmm
   clone_url: https://github.com/percona/pmm.git
@@ -46,7 +55,7 @@ openspec:
   require_spec_approval: true
 
 agents:
-  loop_controller: agents/microagents/loop-controller.md
+  controller: agents/microagents/loop-controller.md
   dev:
     microagent: agents/microagents/dev-agent.md
     max_iterations: 80
@@ -68,11 +77,6 @@ sandbox:
   ttl_hours: 72
   keep_warm_until: ready_for_merge
   setup_script: sandbox/setup-pmm-workspace.sh
-  worker:
-    provider: linode
-    region: eu-central
-    type: g6-standard-8
-    destroy_on_ready_for_merge: true
   workspace_layout:
     - path: /workspace/pmm
       repo: percona/pmm
@@ -85,4 +89,4 @@ sandbox:
 
 metrics:
   enabled: true
-  log_dir: /var/log/pmm-agentic-flow
+  log_dir: /var/log/agentic-flow

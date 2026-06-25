@@ -25,8 +25,6 @@ write_files:
       GITHUB_TOKEN=${github_token}
       LINODE_TOKEN=${linode_token}
       WORKER_ROOT_PASSWORD=${worker_root_password}
-      WORKER_LINODE_TYPE=${worker_linode_type}
-      WORKER_LINODE_REGION=${worker_linode_region}
       SANDBOX_TTL_HOURS=72
       MAX_AGENT_RETRIES=2
       MAX_BUILD_RETRIES=5
@@ -42,8 +40,8 @@ write_files:
       set -euo pipefail
       REPO="${bootstrap_repo_url}"
       DEST=/opt/pmm-agentic-flow/src
-      PUBLIC_IP="$(curl -fsSL https://ifconfig.me/ip 2>/dev/null || hostname -I | awk '{print $1}')"
-      echo "Public IP: $PUBLIC_IP"
+      PUBLIC_IP="$(curl -4 -fsSL https://ifconfig.me/ip 2>/dev/null || curl -4 -fsSL https://ipv4.icanhazip.com)"
+      echo "Public IPv4: $PUBLIC_IP"
       sed -i "s|__PUBLIC_IP__|$PUBLIC_IP|g" /etc/pmm-agentic-flow/env
       echo "Cloning $REPO → $DEST"
       if [ ! -d "$DEST/.git" ]; then
@@ -52,6 +50,7 @@ write_files:
         git -C "$DEST" pull --ff-only
       fi
       cp /etc/pmm-agentic-flow/env "$DEST/.env"
+      bash "$DEST/scripts/stack-cleanup.sh" || true
       cd "$DEST/deploy"
       docker compose --env-file "$DEST/.env" pull
       docker compose --env-file "$DEST/.env" up -d --build

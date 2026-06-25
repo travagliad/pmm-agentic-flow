@@ -14,7 +14,7 @@ Run three times: `agent_canvas_api_key`, `agent_canvas_secret_key`, `orchestrato
 |-----|-------------|---------|
 | **AGENT_CANVAS_API_KEY** | You (browser) + orchestrator | Protects the Agent Canvas UI/API when exposed on the internet. Enter once in the Canvas login/settings. Orchestrator sends it when creating conversations. |
 | **AGENT_CANVAS_SECRET_KEY** | Agent Canvas only | Encrypts secrets the Canvas stores on disk (provider tokens, settings). Not sent on every request — set once at deploy. |
-| **ORCHESTRATOR_API_KEY** | You (scripts) + Jira webhook | Protects `/loop/api/*` and validates `x-api-key` on manual transitions. Jira Automation sends the same value in `x-webhook-secret` (or configure header to match). |
+| **ORCHESTRATOR_API_KEY** | You (scripts) + Jira webhook | Protects `https://<ip>/orchestrator/*` and validates `x-api-key`. |
 | **GITHUB_TOKEN** | Orchestrator + agents | Clone repos, search pmm-submodules PRs, open PRs. |
 | **LINODE_TOKEN** | Orchestrator | Create/delete ephemeral QA worker VMs. Same token as Terraform, or a scoped sub-token. |
 | **JIRA_API_TOKEN** | Orchestrator | Post comments (conversation link, PMM URL) to tickets. |
@@ -43,8 +43,7 @@ Bootstrap sets `AGENT_CANVAS_PUBLIC_URL=https://<ip>` automatically. No sslip.io
 
 This stack does **not** run LiteLLM. Configure models in **Agent Canvas → Manage Backends**:
 
-- **GitHub Copilot:** use Copilot CLI with `--acp` (Agent Client Protocol) — Canvas talks to it directly.
-- **Cursor:** there is no first-class “paste Cursor API token” backend in Agent Canvas today. Options: use Copilot/Anthropic/OpenAI via ACP or OpenAI-compatible API; run Cursor IDE locally for your own sessions; or wire [Cursor Cloud Agents API](https://cursor.com/docs) separately if you build a custom backend adapter.
+See [llm-acp.md](./llm-acp.md) for Cursor and Copilot via ACP.
 
 ## Team deployment (not POC)
 
@@ -68,5 +67,5 @@ After apply:
 ```text
 https://<terraform output public_ip>/
 Jira webhook: https://<ip>/hooks/jira
-Test API:     https://<ip>/loop/api/tickets  (header x-api-key)
+Test API:     https://<ip>/orchestrator/tickets  (header x-api-key)
 ```

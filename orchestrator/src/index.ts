@@ -1,6 +1,6 @@
 import express from "express";
 import { z } from "zod";
-import { loadEnv, loadJiraWorkflow, loadLoopConfig } from "./config.js";
+import { loadEnv, loadJiraWorkflow, loadStackConfig } from "./config.js";
 import { WorkflowEngine } from "./workflow-engine.js";
 
 const transitionSchema = z.object({
@@ -34,16 +34,12 @@ function extractDescription(desc: unknown): string | undefined {
 
 function main() {
   const env = loadEnv();
-  const loop = loadLoopConfig(env.loopConfigPath);
+  const stack = loadStackConfig(env.stackConfigPath);
   const workflow = loadJiraWorkflow(env.jiraWorkflowPath);
-  const engine = new WorkflowEngine(env, loop, workflow);
+  const engine = new WorkflowEngine(env, stack, workflow);
 
   const app = express();
   app.use(express.json({ limit: "2mb" }));
-
-  app.get("/health", (_req, res) => {
-    res.json({ ok: true, trigger: loop.lifecycle.trigger });
-  });
 
   const auth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const key = req.header("x-api-key");
@@ -54,11 +50,16 @@ function main() {
     next();
   };
 
-  app.get("/api/tickets", auth, (_req, res) => {
+  const api = express.Router();
+  api.get("/health", (_req, res) => {
+    res.json({ ok: true, trigger: stack.lifecycle.trigger });
+  });
+
+  api.get("/tickets", auth, (_req, res) => {
     res.json(engine.listTickets());
   });
 
-  app.get("/api/tickets/:key", auth, (req, res) => {
+  api.get("/tickets/:key", auth, (req, res) => {
     const key = String(req.params.key).toUpperCase();
     const ticket = engine.getTicket(key);
     if (!ticket) {
@@ -68,7 +69,7 @@ function main() {
     res.json(ticket);
   });
 
-  app.post("/api/tickets/transition", auth, async (req, res) => {
+  api.post("/tickets/transition", auth, async (req, res) => {
     try {
       const input = transitionSchema.parse(req.body);
       const ticket = await engine.handleTransition({
@@ -85,6 +86,35 @@ function main() {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });
+
+  api.post("/tickets/:key/links", auth, async (req, res) => {
+    try {
+      const body = z
+        .object({
+          specPrUrl: z.string().url().optional(),
+          devPrUrl: z.string().url().optional(),
+          qaPrUrl: z.string().url().optional(),
+        })
+        .parse(req.body);
+      const ticket = await engine.updateTicketLinks(String(req.params.key).toUpperCase(), body);
+      res.json(ticket);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  api.post("/tickets/:key/refresh-access", auth, async (req, res) => {
+    const key = String(req.params.key).toUpperCase();
+    const ticket = engine.getTicket(key);
+    if (!ticket?.conversationId) {
+      res.status(404).json({ error: "Ticket or conversation not found" });
+      return;
+    }
+    await engine.refreshAccessLinks(ticket, "manual");
+    res.json(engine.getTicket(key));
+  });
+
+  app.use("/orchestrator", api);
 
   app.post("/hooks/jira", async (req, res) => {
     if (env.jiraWebhookSecret) {
@@ -118,40 +148,13 @@ function main() {
     }
   });
 
-  app.post("/api/tickets/:key/links", auth, async (req, res) => {
-    try {
-      const body = z
-        .object({
-          specPrUrl: z.string().url().optional(),
-          devPrUrl: z.string().url().optional(),
-          qaPrUrl: z.string().url().optional(),
-        })
-        .parse(req.body);
-      const ticket = await engine.updateTicketLinks(String(req.params.key).toUpperCase(), body);
-      res.json(ticket);
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
-    }
-  });
-
-  app.post("/api/tickets/:key/refresh-access", auth, async (req, res) => {
-    const key = String(req.params.key).toUpperCase();
-    const ticket = engine.getTicket(key);
-    if (!ticket?.conversationId) {
-      res.status(404).json({ error: "Ticket or conversation not found" });
-      return;
-    }
-    await engine.refreshAccessLinks(ticket, "manual");
-    res.json(engine.getTicket(key));
-  });
-
   app.listen(env.orchestratorPort, () => {
     console.log(`Orchestrator listening on :${env.orchestratorPort}`);
-    console.log(`Dev repo: ${loop.dev.repository}`);
-    console.log(`QA repo: ${loop.qa.repository}`);
+    console.log(`Dev repo: ${stack.dev.repository}`);
+    console.log(`QA repo: ${stack.qa.repository}`);
     console.log(`Jira webhook: POST /hooks/jira`);
-    console.log(`Orchestrator health: GET /loop/health (via Caddy)`);
-    console.log(`Manual transition: POST /loop/api/tickets/transition`);
+    console.log(`Health: GET /orchestrator/health`);
+    console.log(`Transition: POST /orchestrator/tickets/transition`);
   });
 }
 

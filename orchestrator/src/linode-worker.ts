@@ -1,4 +1,5 @@
-import type { Env } from "./config.js";
+import type { Env, StackConfig } from "./config.js";
+import { linodeWorkerSettings } from "./config.js";
 import type { FbArtifacts } from "./fb-resolver.js";
 
 export type WorkerRecord = {
@@ -9,7 +10,17 @@ export type WorkerRecord = {
 };
 
 export class LinodeWorkerClient {
-  constructor(private readonly env: Env) {}
+  private readonly region: string;
+  private readonly type: string;
+
+  constructor(
+    private readonly env: Env,
+    stack: StackConfig,
+  ) {
+    const linode = linodeWorkerSettings(stack);
+    this.region = linode.region;
+    this.type = linode.worker_type;
+  }
 
   get enabled(): boolean {
     return Boolean(this.env.linodeToken);
@@ -20,7 +31,7 @@ export class LinodeWorkerClient {
       throw new Error("LINODE_TOKEN not set — cannot provision QA worker");
     }
 
-    const label = `pmm-qa-${ticketKey.toLowerCase()}`.slice(0, 32);
+    const label = `qa-${ticketKey.toLowerCase()}`.slice(0, 32);
     const userData = this.buildCloudInit(fb);
 
     const res = await fetch("https://api.linode.com/v4/linode/instances", {
@@ -28,11 +39,11 @@ export class LinodeWorkerClient {
       headers: this.headers(),
       body: JSON.stringify({
         label,
-        region: this.env.workerLinodeRegion,
-        type: this.env.workerLinodeType,
+        region: this.region,
+        type: this.type,
         image: "linode/ubuntu24.04",
         root_pass: this.env.workerRootPassword,
-        tags: ["pmm-agentic-flow", "qa-worker", ticketKey.toLowerCase()],
+        tags: ["agentic-flow", "qa-worker", ticketKey.toLowerCase()],
         metadata: { user_data: Buffer.from(userData).toString("base64") },
       }),
     });
@@ -101,7 +112,7 @@ runcmd:
   - systemctl start docker
   - docker pull ${fb.serverImage}
   - docker run -d --name pmm-server --restart unless-stopped -p 8443:8443 -p 8081:8080 ${fb.serverImage}
-  - echo "PMM QA worker ready" > /var/log/pmm-qa-worker-ready.log
+  - echo "QA worker ready" > /var/log/qa-worker-ready.log
 `;
   }
 

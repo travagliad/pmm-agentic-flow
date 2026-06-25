@@ -8,7 +8,22 @@ const repoSchema = z.object({
   default_branch: z.string().default("main"),
 });
 
-const loopConfigSchema = z.object({
+const infrastructureSchema = z.object({
+  linode: z.object({
+    control_plane_type: z.string().default("g6-standard-4"),
+    worker_type: z.string().default("g6-standard-8"),
+    region: z.string().default("eu-central"),
+  }),
+});
+
+const stackConfigSchema = z.object({
+  infrastructure: infrastructureSchema.default({
+    linode: {
+      control_plane_type: "g6-standard-4",
+      worker_type: "g6-standard-8",
+      region: "eu-central",
+    },
+  }),
   dev: repoSchema.extend({
     alt_repositories: z
       .array(z.object({ name: z.string(), repository: z.string(), clone_url: z.string().url() }))
@@ -56,7 +71,8 @@ const loopConfigSchema = z.object({
     require_spec_approval: z.boolean().default(true),
   }),
   agents: z.object({
-    loop_controller: z.string().default("agents/microagents/loop-controller.md"),
+    controller: z.string().default("agents/microagents/loop-controller.md"),
+    loop_controller: z.string().optional(),
     dev: z.object({ microagent: z.string(), max_iterations: z.number().default(80) }),
     qa: z.object({ microagent: z.string(), max_iterations: z.number().default(40) }),
   }),
@@ -114,20 +130,22 @@ export const jiraWorkflowSchema = z.object({
     .optional(),
 });
 
-export type LoopConfig = z.infer<typeof loopConfigSchema>;
+export type StackConfig = z.infer<typeof stackConfigSchema>;
+/** @deprecated use StackConfig */
+export type LoopConfig = StackConfig;
 export type JiraWorkflowConfig = z.infer<typeof jiraWorkflowSchema>;
 
 export type Env = {
   orchestratorPort: number;
   orchestratorApiKey: string;
-  openhandsBaseUrl: string;
-  openhandsPublicUrl: string;
-  openhandsApiKey: string;
+  agentCanvasBaseUrl: string;
+  agentCanvasPublicUrl: string;
+  agentCanvasApiKey: string;
   githubToken: string;
   sandboxTtlHours: number;
   maxAgentRetries: number;
   maxBuildRetries: number;
-  loopConfigPath: string;
+  stackConfigPath: string;
   jiraWorkflowPath: string;
   jiraBaseUrl?: string;
   jiraEmail?: string;
@@ -135,8 +153,6 @@ export type Env = {
   jiraWebhookSecret?: string;
   dataDir: string;
   linodeToken?: string;
-  workerLinodeRegion: string;
-  workerLinodeType: string;
   workerRootPassword?: string;
 };
 
@@ -147,31 +163,20 @@ export function loadEnv(): Env {
     return value;
   };
 
-  const apiKey =
-    process.env.AGENT_CANVAS_API_KEY ??
-    process.env.OPENHANDS_API_KEY ??
-    process.env.LOCAL_BACKEND_API_KEY;
-  if (!apiKey) throw new Error("Missing AGENT_CANVAS_API_KEY (or OPENHANDS_API_KEY)");
-
-  const publicUrl =
-    process.env.AGENT_CANVAS_PUBLIC_URL ??
-    process.env.OPENHANDS_PUBLIC_URL ??
-    (process.env.LOOP_DOMAIN ? `https://${process.env.LOOP_DOMAIN}` : undefined);
+  const apiKey = process.env.AGENT_CANVAS_API_KEY ?? process.env.LOCAL_BACKEND_API_KEY;
+  if (!apiKey) throw new Error("Missing AGENT_CANVAS_API_KEY");
 
   return {
     orchestratorPort: Number(process.env.ORCHESTRATOR_PORT ?? 8080),
     orchestratorApiKey: required("ORCHESTRATOR_API_KEY"),
-    openhandsBaseUrl:
-      process.env.AGENT_CANVAS_BASE_URL ??
-      process.env.OPENHANDS_BASE_URL ??
-      "http://127.0.0.1:8000",
-    openhandsPublicUrl: publicUrl ?? "http://127.0.0.1:8000",
-    openhandsApiKey: apiKey,
+    agentCanvasBaseUrl: process.env.AGENT_CANVAS_BASE_URL ?? "http://agent-canvas:8000",
+    agentCanvasPublicUrl: process.env.AGENT_CANVAS_PUBLIC_URL ?? "https://127.0.0.1",
+    agentCanvasApiKey: apiKey,
     githubToken: required("GITHUB_TOKEN"),
     sandboxTtlHours: Number(process.env.SANDBOX_TTL_HOURS ?? 72),
     maxAgentRetries: Number(process.env.MAX_AGENT_RETRIES ?? 2),
     maxBuildRetries: Number(process.env.MAX_BUILD_RETRIES ?? 5),
-    loopConfigPath: process.env.LOOP_CONFIG_PATH ?? "/config/loop.yaml",
+    stackConfigPath: process.env.STACK_CONFIG_PATH ?? "/config/stack.yaml",
     jiraWorkflowPath: process.env.JIRA_WORKFLOW_PATH ?? "/config/jira-workflow.yaml",
     jiraBaseUrl: process.env.JIRA_BASE_URL,
     jiraEmail: process.env.JIRA_EMAIL,
@@ -179,18 +184,27 @@ export function loadEnv(): Env {
     jiraWebhookSecret: process.env.JIRA_WEBHOOK_SECRET,
     dataDir: process.env.DATA_DIR ?? "/data",
     linodeToken: process.env.LINODE_TOKEN,
-    workerLinodeRegion: process.env.WORKER_LINODE_REGION ?? "eu-central",
-    workerLinodeType: process.env.WORKER_LINODE_TYPE ?? "g6-standard-8",
     workerRootPassword: process.env.WORKER_ROOT_PASSWORD,
   };
 }
 
-export function loadLoopConfig(path: string): LoopConfig {
+export function loadStackConfig(path: string): StackConfig {
   const raw = fs.readFileSync(path, "utf8");
-  return loopConfigSchema.parse(yaml.load(raw));
+  const parsed = stackConfigSchema.parse(yaml.load(raw));
+  if (!parsed.agents.controller && parsed.agents.loop_controller) {
+    parsed.agents.controller = parsed.agents.loop_controller;
+  }
+  return parsed;
 }
+
+/** @deprecated use loadStackConfig */
+export const loadLoopConfig = loadStackConfig;
 
 export function loadJiraWorkflow(path: string): JiraWorkflowConfig {
   const raw = fs.readFileSync(path, "utf8");
   return jiraWorkflowSchema.parse(yaml.load(raw));
+}
+
+export function linodeWorkerSettings(stack: StackConfig) {
+  return stack.infrastructure.linode;
 }

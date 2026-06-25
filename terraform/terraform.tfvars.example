@@ -1,3 +1,4 @@
+# Linode sizes must match config/stack.yaml → infrastructure.linode
 linode_token            = "YOUR_LINODE_TOKEN"
 root_password           = "GENERATE_A_STRONG_PASSWORD"
 worker_root_password    = "GENERATE_A_DIFFERENT_PASSWORD_FOR_QA_WORKERS"

@@ -1,4 +1,4 @@
-import type { LoopConfig } from "./config.js";
+import type { StackConfig } from "./config.js";
 import type { TicketRecord } from "./ticket-store.js";
 
 export type IssueContext = {
@@ -22,7 +22,7 @@ export function changeIdForTicket(ticketKey: string, summary?: string): string {
 
 export function buildProposePrompt(
   ticket: TicketRecord,
-  config: LoopConfig,
+  config: StackConfig,
   ctx: IssueContext,
 ): string {
   const changeId = ticket.changeId ?? changeIdForTicket(ticket.ticketKey, ctx.summary);
@@ -55,7 +55,7 @@ export function buildProposePrompt(
 
 export function buildApplyPrompt(
   ticket: TicketRecord,
-  config: LoopConfig,
+  config: StackConfig,
   ctx: IssueContext,
 ): string {
   const changeId = ticket.changeId ?? changeIdForTicket(ticket.ticketKey, ctx.summary);
@@ -111,7 +111,7 @@ export function buildQaEnvironmentStartingNotice(ticket: TicketRecord): string {
     .join("\n");
 }
 
-export function buildQaPrompt(ticket: TicketRecord, config: LoopConfig, ctx: IssueContext): string {
+export function buildQaPrompt(ticket: TicketRecord, config: StackConfig, ctx: IssueContext): string {
   return [
     "/loop:qa",
     "",
@@ -145,7 +145,7 @@ export function buildQaPrompt(ticket: TicketRecord, config: LoopConfig, ctx: Iss
     .join("\n");
 }
 
-export function buildFinalizePrompt(ticket: TicketRecord, config: LoopConfig): string {
+export function buildFinalizePrompt(ticket: TicketRecord, config: StackConfig): string {
   return [
     "/loop:finalize",
     "",

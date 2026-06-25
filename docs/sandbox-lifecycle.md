@@ -1,60 +1,45 @@
-# Sandbox lifecycle — control plane + QA workers
+# Sandbox lifecycle
 
-## Architecture
+## 3 containers only
 
-```text
-Control plane (4GB, always on)     https://<ip>/
-  Caddy :443 → Agent Canvas + orchestrator (/hooks, /loop)
+| Container | Role |
+|-----------|------|
+| `caddy` | HTTPS on `:443` → Canvas + orchestrator |
+| `agent-canvas` | Chat UI + agent |
+| `orchestrator` | Jira webhooks + ticket API |
 
-QA worker (8GB, per ticket)          https://<worker-ip>:8443/
-  Created on In QA, destroyed on Ready for Merge
+Legacy `loop-litellm`, `loop-openhands` (0.39) are **not** part of the stack. Remove with:
+
+```bash
+bash scripts/stack-cleanup.sh
+docker compose up -d --build
 ```
 
-## Flow
+## URLs
 
-| Jira status | Infra | Chat |
-|-------------|-------|------|
-| In Progress | Control plane only | `/opsx:apply` — local build, no PMM FB |
-| In Review | — | Notice + FB tag sync |
-| In QA | Create 8GB worker | `/loop:qa` when PMM up |
-| Ready for Merge | Destroy worker | finalize + archive |
+```text
+https://<ipv4>/                      Agent Canvas
+https://<ipv4>/hooks/jira            Jira webhook
+https://<ipv4>/orchestrator/tickets  API (x-api-key)
+```
 
-## Deploy / update (existing Linode)
+IPv4 only — `scripts/public-ip.sh` uses `curl -4`.
+
+## Instance sizes (single source)
+
+`config/stack.yaml` → `infrastructure.linode`:
+
+| Role | Key | Default |
+|------|-----|---------|
+| Control plane | `control_plane_type` | `g6-standard-4` (4GB) |
+| QA worker | `worker_type` | `g6-standard-8` (8GB) |
+
+Terraform `instance_type` / `worker_linode_type` must match when provisioning the control plane VM.
+
+## Update existing Linode
 
 ```bash
 cd /opt/pmm-agentic-flow/src && git pull
-PUBLIC_IP=$(bash scripts/public-ip.sh)
-sed -i "s|^AGENT_CANVAS_PUBLIC_URL=.*|AGENT_CANVAS_PUBLIC_URL=https://$PUBLIC_IP|" /etc/pmm-agentic-flow/env
-cp /etc/pmm-agentic-flow/env .env
-cd deploy && docker compose --env-file ../.env up -d --build
+bash scripts/stack-cleanup.sh
+bash scripts/linode-recover.sh
 ```
-
-Open **https://\<your-ip\>/** (accept self-signed cert).
-
-## Jira webhook
-
-```text
-POST https://<control-ip>/hooks/jira
-Header: x-webhook-secret: <JIRA_WEBHOOK_SECRET>
-```
-
-## Test without Jira
-
-```bash
-export ORCHESTRATOR_API_KEY=...
-export LOOP_BASE_URL=https://<control-ip>/loop
-
-./scripts/simulate-transition.sh PMM-15083 "In Progress" "Summary"
-./scripts/simulate-transition.sh PMM-15083 "In QA"
-```
-
-## Instance sizes
-
-| Role | Linode type | RAM |
-|------|-------------|-----|
-| Control plane | `g6-standard-4` | 4GB |
-| QA worker | `g6-standard-8` | 8GB |
-
-Set in `terraform.tfvars`: `instance_type` vs `worker_linode_type`.
-
-See also [tokens-and-secrets.md](./tokens-and-secrets.md).

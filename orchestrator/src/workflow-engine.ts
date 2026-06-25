@@ -1,4 +1,4 @@
-import type { Env, JiraWorkflowConfig, LoopConfig } from "./config.js";
+import type { Env, JiraWorkflowConfig, StackConfig } from "./config.js";
 import {
   buildApplyPrompt,
   buildArchivePrompt,
@@ -31,14 +31,14 @@ export class WorkflowEngine {
 
   constructor(
     private readonly env: Env,
-    private readonly loop: LoopConfig,
+    private readonly stack: StackConfig,
     private readonly workflow: JiraWorkflowConfig,
   ) {
     this.store = new TicketStore(`${env.dataDir}/tickets`);
     this.openhands = new OpenHandsClient(env);
     this.jira = new JiraClient(env);
     this.fb = new FbResolver(env);
-    this.worker = new LinodeWorkerClient(env);
+    this.worker = new LinodeWorkerClient(env, stack);
   }
 
   listTickets(): TicketRecord[] {
@@ -81,14 +81,14 @@ export class WorkflowEngine {
 
     switch (phase) {
       case "ready_for_refinement":
-        await this.dispatchCommand(ticket, buildProposePrompt(ticket, this.loop, input.issue ?? {}));
+        await this.dispatchCommand(ticket, buildProposePrompt(ticket, this.stack, input.issue ?? {}));
         break;
       case "ready_for_work":
         this.store.log(ticket, "Human gate: PO reviews spec PR.");
         break;
       case "in_progress":
         await this.syncFbArtifacts(ticket, false);
-        await this.dispatchCommand(ticket, buildApplyPrompt(ticket, this.loop, input.issue ?? {}));
+        await this.dispatchCommand(ticket, buildApplyPrompt(ticket, this.stack, input.issue ?? {}));
         await this.postConversationLink(ticket);
         break;
       case "in_review":
@@ -100,7 +100,7 @@ export class WorkflowEngine {
         break;
       case "ready_for_merge":
         await this.teardownWorker(ticket);
-        await this.dispatchCommand(ticket, buildFinalizePrompt(ticket, this.loop));
+        await this.dispatchCommand(ticket, buildFinalizePrompt(ticket, this.stack));
         await this.dispatchCommand(ticket, buildArchivePrompt(ticket));
         ticket.phase = "done";
         this.store.save(ticket);
@@ -167,7 +167,7 @@ export class WorkflowEngine {
         ticket.ticketKey,
         "LINODE_TOKEN not configured — cannot auto-provision QA worker. Set LINODE_TOKEN on control plane and re-transition to In QA.",
       );
-      await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.loop, ctx));
+      await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.stack, ctx));
       return;
     }
 
@@ -205,7 +205,7 @@ export class WorkflowEngine {
       this.workflow.jira.comments.test_instance.replace("{url}", ticket.pmmServerUrl ?? worker.pmmUrl),
     );
 
-    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.loop, ctx));
+    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.stack, ctx));
     await this.postAccessBundle(ticket, "in_qa");
   }
 
@@ -228,8 +228,8 @@ export class WorkflowEngine {
     if (!ticket.conversationId) {
       const start = await this.openhands.startConversation({
         message,
-        repository: this.loop.dev.repository,
-        branch: this.loop.dev.default_branch,
+        repository: this.stack.dev.repository,
+        branch: this.stack.dev.default_branch,
       });
       ticket.conversationId = await this.openhands.waitForConversation(start.id);
       this.store.log(ticket, `Started conversation ${ticket.conversationId}`);

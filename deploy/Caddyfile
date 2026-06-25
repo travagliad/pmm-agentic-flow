@@ -1,5 +1,4 @@
-# POC: HTTPS on bare IP (self-signed via tls internal).
-# When you have a real domain, replace :443 with {$PUBLIC_HOST} and remove tls internal.
+# HTTPS on bare IPv4 (self-signed). Accept browser cert warning on first visit.
 
 :443 {
   tls internal
@@ -8,16 +7,16 @@
   handle /hooks/* {
     reverse_proxy orchestrator:8080 {
       header_up Host {host}
-      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Proto https
       header_up X-Forwarded-For {remote_host}
       header_up X-Real-IP {remote_host}
     }
   }
 
-  handle_path /loop/* {
+  handle /orchestrator/* {
     reverse_proxy orchestrator:8080 {
       header_up Host {host}
-      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Proto https
       header_up X-Forwarded-For {remote_host}
       header_up X-Real-IP {remote_host}
     }
@@ -26,7 +25,7 @@
   handle {
     reverse_proxy agent-canvas:8000 {
       header_up Host {host}
-      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Proto https
       header_up X-Forwarded-For {remote_host}
       header_up X-Real-IP {remote_host}
       transport http {

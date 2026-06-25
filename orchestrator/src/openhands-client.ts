@@ -27,7 +27,7 @@ export class OpenHandsClient {
 
   private headers() {
     return {
-      Authorization: `Bearer ${this.env.openhandsApiKey}`,
+      Authorization: `Bearer ${this.env.agentCanvasApiKey}`,
       "Content-Type": "application/json",
     };
   }
@@ -45,7 +45,7 @@ export class OpenHandsClient {
       ...(params.branch ? { selected_branch: params.branch } : {}),
     };
 
-    const res = await fetch(`${this.env.openhandsBaseUrl}/api/v1/app-conversations`, {
+    const res = await fetch(`${this.env.agentCanvasBaseUrl}/api/v1/app-conversations`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(body),
@@ -62,7 +62,7 @@ export class OpenHandsClient {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
       const res = await fetch(
-        `${this.env.openhandsBaseUrl}/api/v1/app-conversations/start-tasks/${startTaskId}`,
+        `${this.env.agentCanvasBaseUrl}/api/v1/app-conversations/start-tasks/${startTaskId}`,
         { headers: this.headers() },
       );
       if (!res.ok) {
@@ -82,7 +82,7 @@ export class OpenHandsClient {
 
   async getConversation(conversationId: string): Promise<AppConversation> {
     const res = await fetch(
-      `${this.env.openhandsBaseUrl}/api/v1/app-conversations/${conversationId}`,
+      `${this.env.agentCanvasBaseUrl}/api/v1/app-conversations/${conversationId}`,
       { headers: this.headers() },
     );
     if (!res.ok) {
@@ -93,7 +93,7 @@ export class OpenHandsClient {
 
   async sendMessage(conversationId: string, message: string): Promise<void> {
     const res = await fetch(
-      `${this.env.openhandsBaseUrl}/api/v1/app-conversations/${conversationId}/actions/send-message`,
+      `${this.env.agentCanvasBaseUrl}/api/v1/app-conversations/${conversationId}/actions/send-message`,
       {
         method: "POST",
         headers: this.headers(),
@@ -114,7 +114,7 @@ export class OpenHandsClient {
     if (conv.sandbox_id) {
       try {
         const res = await fetch(
-          `${this.env.openhandsBaseUrl}/api/v1/sandboxes/${conv.sandbox_id}`,
+          `${this.env.agentCanvasBaseUrl}/api/v1/sandboxes/${conv.sandbox_id}`,
           { headers: this.headers() },
         );
         if (res.ok) {
@@ -132,7 +132,7 @@ export class OpenHandsClient {
   }
 
   conversationPublicUrl(conversationId: string): string {
-    return `${this.env.openhandsPublicUrl}/conversations/${conversationId}`;
+    return `${this.env.agentCanvasPublicUrl}/conversations/${conversationId}`;
   }
 }
 
