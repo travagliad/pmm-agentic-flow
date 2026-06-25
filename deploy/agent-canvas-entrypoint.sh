@@ -45,7 +45,7 @@ run_as_canvas_user() {
 }
 
 if [ "$(id -u)" -eq 0 ]; then
-  run_as_canvas_user
+  run_as_canvas_user "$@"
 fi
 
 exec "$ENTRYPOINT" "$@"
