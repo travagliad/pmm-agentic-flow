@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Control plane: Node.js for orchestrator build only (no Agent Canvas, no Docker).
+# Control plane: Node.js, ngrok, Agent Canvas UI. Orchestrator built in bootstrap-host.sh.
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -27,4 +27,5 @@ if [ -n "${NGROK_AUTHTOKEN:-}" ]; then
 fi
 
 mkdir -p /var/lib/pmm-agentic-flow/orchestrator
+bash "$(dirname "$0")/install-agent-canvas.sh" /etc/pmm-agentic-flow/env
 echo "[install-control-plane] node $(node --version)"

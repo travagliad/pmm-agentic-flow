@@ -21,16 +21,14 @@ locals {
     for addr in sort(tolist(linode_instance.loop_host.ipv4)) : addr
     if !startswith(addr, "192.168.")
   ])
-  app_url      = local.use_ngrok ? local.ngrok_domain : "http://${local.public_ipv4}:8080/"
+  app_url      = local.use_ngrok ? local.ngrok_domain : "http://${local.public_ipv4}:8000/"
   jira_webhook = local.use_ngrok ? "${trim(local.ngrok_domain, "/")}/hooks/jira" : "http://${local.public_ipv4}:8080/hooks/jira"
   next_steps_ngrok = <<-EOT
-    1. Wait ~8 min for cloud-init (orchestrator + ngrok agent)
-    2. ngrok dashboard: if dismay-concierge-gem is a Cloud Endpoint with forward-internal→default.internal,
-       delete that policy or the Cloud Endpoint — the VM agent must own this URL.
-    3. Orchestrator: ${trim(local.ngrok_domain, "/")}/
+    1. Wait ~10 min for cloud-init (Agent Canvas + orchestrator + ngrok)
+    2. Open Agent Canvas: ${trim(local.ngrok_domain, "/")}/
+    3. API key: agent_canvas_api_key from terraform.tfvars
     4. Jira webhook: ${trim(local.ngrok_domain, "/")}/hooks/jira
-    5. First sandbox: POST ${trim(local.ngrok_domain, "/")}/orchestrator/tickets/transition (see scripts/simulate-transition.sh)
-    6. SSH (admin only): ssh root@${local.public_ipv4}
+    5. SSH (admin only): ssh root@${local.public_ipv4}
   EOT
   next_steps_direct = <<-EOT
     1. Wait ~8 min for cloud-init
@@ -130,7 +128,7 @@ output "ssh_command" {
 
 output "app_url" {
   value       = local.app_url
-  description = "Orchestrator public URL (ngrok domain or direct IP :8080)."
+  description = "Agent Canvas UI URL (ngrok domain or direct IP :8000)."
 }
 
 output "jira_webhook_url" {

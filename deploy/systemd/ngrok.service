@@ -1,7 +1,8 @@
 [Unit]
 Description=ngrok tunnel to local nginx ingress
-After=network-online.target nginx.service
+After=network-online.target nginx.service agent-canvas.service orchestrator.service
 Requires=nginx.service
+Wants=agent-canvas.service orchestrator.service
 
 [Service]
 Type=simple

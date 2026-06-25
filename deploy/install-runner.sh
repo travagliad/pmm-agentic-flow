@@ -7,8 +7,6 @@ export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 APT_INSTALL=(apt-get install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 
-AGENT_USER="${AGENT_USER:-agentcanvas}"
-AGENT_HOME="/home/${AGENT_USER}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 apt-get update
@@ -20,31 +18,7 @@ if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.v
   "${APT_INSTALL[@]}" nodejs
 fi
 
-if ! id "$AGENT_USER" >/dev/null 2>&1; then
-  useradd -m -s /bin/bash "$AGENT_USER"
-fi
-
-echo "[install-runner] uv"
-if ! command -v uv >/dev/null 2>&1; then
-  curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
-fi
-if [ ! -x "${AGENT_HOME}/.local/bin/uv" ]; then
-  su - "$AGENT_USER" -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
-fi
-
-# shellcheck source=/dev/null
-source /etc/pmm-agentic-flow/runner.env 2>/dev/null || true
-npm install -g "@openhands/agent-canvas@${AGENT_CANVAS_VERSION:-latest}"
-
-bash "$REPO_ROOT/deploy/install-cursor-cli.sh" || true
-
-mkdir -p \
-  "$AGENT_HOME/.openhands/storage" \
-  "$AGENT_HOME/.openhands/workspaces" \
-  "$AGENT_HOME/.openhands/automation" \
-  "$AGENT_HOME/.openhands/agent-canvas" \
-  /projects/pmm /projects/pmm-qa
-chown -R "${AGENT_USER}:${AGENT_USER}" "$AGENT_HOME/.openhands" /projects
+bash "$(dirname "$0")/install-agent-canvas.sh" /etc/pmm-agentic-flow/runner.env
 
 node --version
 uv --version

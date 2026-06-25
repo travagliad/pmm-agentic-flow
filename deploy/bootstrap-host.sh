@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Control plane: orchestrator only. Chats run on per-ticket Linode runners.
+# Control plane: orchestrator + Agent Canvas (UI at ngrok URL). Runners per ticket via Linode API.
 set -euo pipefail
 
 DEST="${BOOTSTRAP_DEST:-/opt/pmm-agentic-flow/src}"
@@ -20,8 +20,11 @@ if [ ! -d "$DEST/.git" ]; then
   exit 1
 fi
 
-bash "$DEST/deploy/mount-data-volume.sh"
 bash "$DEST/deploy/install-control-plane.sh"
+bash "$DEST/deploy/mount-data-volume.sh"
+
+install -m 0755 "$DEST/deploy/agent-canvas-start.sh" /opt/pmm-agentic-flow/agent-canvas-start.sh
+install -m 0644 "$DEST/deploy/systemd/agent-canvas-control-plane.service" /etc/systemd/system/agent-canvas.service
 
 cd "$DEST/orchestrator"
 npm ci
@@ -41,8 +44,8 @@ if [ -n "${NGROK_DOMAIN:-}" ]; then
 fi
 
 systemctl daemon-reload
-systemctl enable orchestrator
-systemctl restart orchestrator
+systemctl enable agent-canvas orchestrator
+systemctl restart agent-canvas orchestrator
 [ -n "${NGROK_DOMAIN:-}" ] && systemctl restart ngrok
 
-echo "[bootstrap-host] orchestrator :8080 (runners provisioned per chat via Linode API)"
+echo "[bootstrap-host] Agent Canvas :8000 + orchestrator :8080 (nginx :8787, ngrok public URL)"
