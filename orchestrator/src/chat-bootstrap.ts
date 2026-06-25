@@ -19,7 +19,6 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
   const ticketKey = ticket.ticketKey;
   const conversationId = ticket.conversationId;
   const publicBase = env.agentCanvasPublicUrl.replace(/\/$/, "");
-  const backendId = sandboxBackendId(ticketKey);
   const backendHost = sandboxBackendHost(publicBase, ticketKey);
 
   if (!conversationId) {
@@ -51,6 +50,7 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
 
   const conversationUrl = `${publicBase}/conversations/${conversationId}`;
   const apiKey = env.agentCanvasApiKey;
+  const sandboxHost = backendHost;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -58,15 +58,14 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
 <body><p>Opening chat…</p>
 <script>
 (function() {
-  const backendId = ${JSON.stringify(backendId)};
-  const backendHost = ${JSON.stringify(backendHost)};
-  const backendName = ${JSON.stringify(ticketKey)};
+  const ticketKey = ${JSON.stringify(ticketKey)};
+  const sandboxHost = ${JSON.stringify(sandboxHost)};
   const conversationUrl = ${JSON.stringify(conversationUrl)};
-  const publicBase = ${JSON.stringify(publicBase)};
   const apiKey = ${JSON.stringify(apiKey)};
   const configKey = "openhands-agent-server-config";
   const backendsKey = "openhands-backends";
   const activeKey = "openhands-active-backend";
+  const restoreKey = "pmm-sandbox-host-restore";
 
   try {
     const cfg = JSON.parse(localStorage.getItem(configKey) || "{}");
@@ -81,15 +80,47 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
     backends = JSON.parse(localStorage.getItem(backendsKey) || "[]");
   } catch (_) {}
 
-  const backend = { id: backendId, name: backendName, host: backendHost, apiKey: apiKey, kind: "local" };
-  const idx = backends.findIndex(function(b) { return b.id === backendId; });
-  if (idx >= 0) backends[idx] = backend;
-  else backends.push(backend);
+  let active = null;
+  try {
+    active = JSON.parse(localStorage.getItem(activeKey) || sessionStorage.getItem(activeKey) || "null");
+  } catch (_) {}
+
+  let target = active && active.backendId
+    ? backends.find(function(b) { return b.id === active.backendId; })
+    : null;
+  if (!target && backends.length > 0) target = backends[0];
+  if (!target) {
+    target = {
+      id: "local",
+      name: "Local",
+      host: ${JSON.stringify(publicBase)},
+      apiKey: apiKey,
+      kind: "local",
+    };
+    backends.push(target);
+  }
+
+  try {
+    const restore = JSON.parse(sessionStorage.getItem(restoreKey) || "{}");
+    if (!restore[target.id]) {
+      restore[target.id] = { host: target.host, name: target.name, ticketKey: ticketKey };
+      sessionStorage.setItem(restoreKey, JSON.stringify(restore));
+    }
+  } catch (_) {}
+
+  target.host = sandboxHost;
+  target.apiKey = apiKey;
+  target.name = ticketKey + " (sandbox)";
+  target.kind = "local";
+
+  const idx = backends.findIndex(function(b) { return b.id === target.id; });
+  if (idx >= 0) backends[idx] = target;
+  else backends.push(target);
 
   localStorage.setItem(backendsKey, JSON.stringify(backends));
-  const active = { backendId: backendId, orgId: null };
-  localStorage.setItem(activeKey, JSON.stringify(active));
-  sessionStorage.setItem(activeKey, JSON.stringify(active));
+  const activeState = { backendId: target.id, orgId: null };
+  localStorage.setItem(activeKey, JSON.stringify(activeState));
+  sessionStorage.setItem(activeKey, JSON.stringify(activeState));
   location.replace(conversationUrl);
 })();
 </script>
