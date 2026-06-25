@@ -13,7 +13,7 @@ services:
       - sh
       - -ec
       - |
-        mkdir -p /state/storage /state/workspaces /state/automation
+        mkdir -p /state/storage /state/workspaces /state/automation /state/agent-canvas
         mkdir -p /projects
         chown -R "$${CANVAS_UID}:$${CANVAS_UID}" /state /projects
         chmod -R u+rwX /state /projects
@@ -31,14 +31,19 @@ services:
       PORT: "8000"
       LOCAL_BACKEND_API_KEY: ${AGENT_CANVAS_API_KEY}
       OH_SECRET_KEY: ${AGENT_CANVAS_SECRET_KEY}
+      FILE_STORE: local
+      LOCAL_STORAGE_PATH: /home/openhands/.openhands/storage
+      AUTOMATION_WORKSPACE_BASE: /home/openhands/.openhands/workspaces
+      AUTOMATION_BASE_URL: ${AGENT_CANVAS_PUBLIC_URL:-http://127.0.0.1:8000}
     volumes:
       - agent-canvas-state:/home/openhands/.openhands
       - agent-canvas-projects:/projects
       - ../sandbox:/projects/pmm-agentic-flow/sandbox:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8000:8000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 10

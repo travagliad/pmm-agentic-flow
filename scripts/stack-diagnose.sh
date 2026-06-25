@@ -28,8 +28,8 @@ echo "==> curl orchestrator health"
 curl -fsS --connect-timeout 5 "http://127.0.0.1:8080/orchestrator/health" || echo "FAIL"
 
 echo ""
-echo "==> agent-canvas (last 20 lines)"
-docker logs agent-canvas --tail 20 2>&1 || true
+echo "==> agent-server :18000 (inside container)"
+docker exec agent-canvas wget -qO- --timeout=3 http://127.0.0.1:18000/health 2>&1 || echo "FAIL — agent-server not running (Manage Backends will show Disconnected)"
 
 echo ""
 echo "==> orchestrator (last 15 lines)"

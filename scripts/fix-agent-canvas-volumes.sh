@@ -13,7 +13,7 @@ fix_volume() {
   echo "fix $vol → uid ${UID_NUM}"
   docker run --rm -v "${vol}:/data" alpine:3.21 sh -c "
     set -e
-    mkdir -p /data/storage /data/workspaces /data/automation
+    mkdir -p /data/storage /data/workspaces /data/automation /data/agent-canvas
     chown -R ${UID_NUM}:${UID_NUM} /data
     chmod -R u+rwX /data
   "
