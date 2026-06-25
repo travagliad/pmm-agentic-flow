@@ -42,4 +42,4 @@ export ORCHESTRATOR_BASE_URL=http://<ip>:8080/orchestrator
 
 Instalação opcional dos CLIs: `bash scripts/install-agent-clis.sh`
 
-Alternativa mais rápida para POC: Settings → colar API key Anthropic ou OpenAI (sem instalar nada no servidor).
+Alternativa com subscrição Cursor: `bash scripts/setup-cursor-acp.sh` — ver [llm-acp.md](./llm-acp.md).

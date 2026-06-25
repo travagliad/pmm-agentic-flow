@@ -43,6 +43,8 @@ services:
       AUTOMATION_WORKSPACE_BASE: /home/openhands/.openhands/workspaces
       AUTOMATION_BASE_URL: ${AGENT_CANVAS_PUBLIC_URL:-http://127.0.0.1:8000}
       AUTOMATION_DB_URL: sqlite+aiosqlite:////home/openhands/.openhands/automation/automations.db
+      CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+      PATH: /home/openhands/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - agent-canvas-state:/home/openhands/.openhands
       - agent-canvas-projects:/projects
