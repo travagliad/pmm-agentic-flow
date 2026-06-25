@@ -23,8 +23,8 @@ fi
 bash "$DEST/deploy/install-control-plane.sh"
 
 bash "$DEST/deploy/install-acp-clis.sh" "$ENV_FILE"
-if [ -n "${CURSOR_API_KEY:-}" ] && ! [ -x /usr/local/bin/agent ]; then
-  echo "[bootstrap-host] ERROR: CURSOR_API_KEY is set but /usr/local/bin/agent is missing" >&2
+if [ -n "${CURSOR_API_KEY:-}" ] && ! { [ -x /usr/local/bin/agent ] && /usr/local/bin/agent --version >/dev/null 2>&1; }; then
+  echo "[bootstrap-host] ERROR: CURSOR_API_KEY is set but /usr/local/bin/agent is not working" >&2
   exit 1
 fi
 if ! [ -x /usr/local/bin/agent ] && ! [ -x /usr/local/bin/copilot ]; then
@@ -56,7 +56,6 @@ systemctl enable nginx agent-canvas orchestrator
 
 systemctl restart agent-canvas
 /opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8000/ 300
-bash "$DEST/deploy/seed-acp-backend.sh" "$ENV_FILE"
 
 systemctl restart orchestrator
 /opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8080/orchestrator/health 60
@@ -70,12 +69,12 @@ systemctl restart nginx
 echo "[bootstrap-host] ready: Canvas :8000 orchestrator :8080 nginx :8787"
 echo ""
 echo "[bootstrap-host] ACP CLI:"
-if [ -x /usr/local/bin/agent ]; then
-  echo "  Cursor: /usr/local/bin/agent ($(/usr/local/bin/agent --version 2>/dev/null || echo installed))"
-  echo "  Auto-seeded → /usr/local/bin/agent acp"
+if [ -x /usr/local/bin/agent ] && /usr/local/bin/agent --version >/dev/null 2>&1; then
+  echo "  Cursor: /usr/local/bin/agent ($(/usr/local/bin/agent --version 2>/dev/null))"
+  echo "  Configure manually in Canvas → Manage Backends: command /usr/local/bin/agent args acp"
 elif [ -x /usr/local/bin/copilot ]; then
   echo "  Copilot: /usr/local/bin/copilot ($(/usr/local/bin/copilot --version 2>/dev/null | head -1 || echo installed))"
-  echo "  Auto-seeded → /usr/local/bin/copilot acp"
+  echo "  Configure manually in Canvas → Manage Backends: command /usr/local/bin/copilot args acp"
 else
-  echo "  NONE — fix install-acp-clis.sh and re-run bootstrap"
+  echo "  NONE — check install-acp-clis.sh logs"
 fi

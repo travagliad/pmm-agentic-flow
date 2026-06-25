@@ -3,13 +3,20 @@
 set -euo pipefail
 
 AGENT_BIN=/usr/local/bin/agent
+INSTALL_ROOT=/opt/cursor-agent
 CURL_IPV4_DIR=/tmp/curl-ipv4
 MAX_ATTEMPTS=3
 
-if [ -x "$AGENT_BIN" ]; then
-  echo "[cursor-cli] already installed: $AGENT_BIN"
+agent_works() {
+  [ -x "$AGENT_BIN" ] && "$AGENT_BIN" --version >/dev/null 2>&1
+}
+
+if agent_works; then
+  echo "[cursor-cli] already installed: $("$AGENT_BIN" --version 2>/dev/null)"
   exit 0
 fi
+
+rm -f "$AGENT_BIN" /usr/local/bin/cursor-agent
 
 mkdir -p "$CURL_IPV4_DIR"
 cat >"$CURL_IPV4_DIR/curl" <<'EOF'
@@ -85,12 +92,11 @@ fi
 
 if ! gzip -t "$tarball" 2>/dev/null; then
   echo "[cursor-cli] ERROR: downloaded file is not a valid gzip tarball" >&2
-  head -c 200 "$tarball" | tr -d '\0' | sed 's/^/[cursor-cli] response preview: /' >&2 || true
   rm -f "$tarball"
   exit 1
 fi
 
-dest="/opt/cursor-agent/${version_dir:-unknown}"
+dest="${INSTALL_ROOT}/${version_dir:-unknown}"
 rm -rf "$dest"
 mkdir -p "$dest"
 if ! tar --strip-components=1 -xzf "$tarball" -C "$dest"; then
@@ -100,11 +106,19 @@ if ! tar --strip-components=1 -xzf "$tarball" -C "$dest"; then
 fi
 rm -f "$tarball"
 
-if [ ! -f "$dest/cursor-agent" ]; then
-  echo "[cursor-cli] ERROR: cursor-agent binary missing after extract" >&2
+if [ ! -f "$dest/cursor-agent" ] || [ ! -x "$dest/node" ]; then
+  echo "[cursor-cli] ERROR: cursor-agent or bundled node missing under $dest" >&2
   exit 1
 fi
 
-install -m 0755 "$dest/cursor-agent" "$AGENT_BIN"
-ln -sf "$AGENT_BIN" /usr/local/bin/cursor-agent
-echo "[cursor-cli] installed: $($AGENT_BIN --version 2>/dev/null || echo "$version_dir")"
+chmod +x "$dest/cursor-agent" "$dest/node"
+ln -sf "$dest/cursor-agent" "$AGENT_BIN"
+ln -sf "$dest/cursor-agent" /usr/local/bin/cursor-agent
+
+if ! agent_works; then
+  echo "[cursor-cli] ERROR: $AGENT_BIN installed but --version failed" >&2
+  "$AGENT_BIN" --version 2>&1 | sed 's/^/[cursor-cli] /' >&2 || true
+  exit 1
+fi
+
+echo "[cursor-cli] installed: $("$AGENT_BIN" --version)"

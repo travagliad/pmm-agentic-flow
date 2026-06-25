@@ -30,7 +30,14 @@ If a specific lab version is unpublished on the CDN, Cursor may return 403 until
 
 `deploy/install-cursor-cli.sh` retries 3×, validates the tarball, and fails bootstrap loudly on error.
 
-**When `cursor_api_key` is set:** `deploy/seed-acp-backend.sh` registers `/usr/local/bin/agent acp` automatically after Canvas starts.
+`deploy/install-cursor-cli.sh` extracts the full package under `/opt/cursor-agent/<version>/` and symlinks `/usr/local/bin/agent` to the bundled launcher (which needs `node` and `index.js` in the same directory — do not copy the wrapper alone).
+
+Bootstrap **fails** if `cursor_api_key` is set and `agent --version` does not work.
+
+## Canvas UI (manual)
+
+1. Open `https://<ngrok-domain>/` or `http://<public_ip>:8000/`
+2. **Manage Backends** → command `/usr/local/bin/agent`, args `acp`
 
 ## Architecture: control plane vs runner chat
 
@@ -50,13 +57,6 @@ When a ticket moves through the workflow, the orchestrator provisions a dedicate
 - Orchestrator would dispatch to control plane Canvas instead of per-runner Canvas.
 
 That consolidation is not implemented yet; the runner-per-chat model is intentional for the current sandbox-isolation POC.
-
-## Canvas UI
-
-1. Control plane (manual): open `https://<ngrok-domain>/` or `http://<public_ip>:8000/`
-2. Runner (per ticket): link posted in Jira comment by orchestrator
-3. **Manage Backends** → Cursor: `/usr/local/bin/agent` + args `acp` (auto-seeded on bootstrap when `cursor_api_key` is set)
-4. Or Copilot (only if Cursor not configured): `/usr/local/bin/copilot` + args `acp`
 
 ## Verify on the VM
 
