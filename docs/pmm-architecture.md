@@ -1,20 +1,20 @@
 # PMM — how the loop maps to real repos
 
-This repo is **not** PMM. It is the **orchestration platform** (Linode + Agent Canvas + LiteLLM).
+This repo is the **orchestration platform** (Linode + Agent Canvas + orchestrator).
 
 Product and QA code stay in their own repositories. The loop coordinates agents, sandboxes, and Jira status transitions.
 
 ## What runs on Linode (always on)
 
 ```text
-docker compose up
-  ├── Caddy          → https://loop.your-domain.com
-  ├── Agent Canvas   → UI + backend (port 8000 internal)
-  ├── LiteLLM        → Copilot as the model (optional)
-  └── Orchestrator   → Jira webhooks + loop API (/hooks, /loop)
+terraform apply  →  cloud-init
+  ├── Agent Canvas   → http://<ip>:8000  (UI + agent-server + sandboxes)
+  └── Orchestrator   → http://<ip>:8080  (Jira webhooks + loop API)
 ```
 
-See [agent-canvas.md](./agent-canvas.md) for the current OpenHands product layout (Agent Canvas replaced the legacy Local GUI on port 3000).
+Secrets: `terraform/terraform.tfvars` on your PC → `/etc/pmm-agentic-flow/env` on the VM.
+
+See [agent-canvas.md](./agent-canvas.md) and [deploy-linode.md](./deploy-linode.md).
 
 Agent Canvas stays running after deploy. Each ticket gets **one long-lived conversation** and workspace until Ready for Merge.
 
