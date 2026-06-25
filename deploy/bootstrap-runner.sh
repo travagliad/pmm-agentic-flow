@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sandbox runner: backend-only Agent Canvas + PMM workspace + ACP for headless orchestrator.
+# Sandbox runner: PMM workspace VM for QA/test execution (no Agent Canvas).
 set -euo pipefail
 
 DEST="${BOOTSTRAP_DEST:-/opt/pmm-agentic-flow/src}"
@@ -14,19 +14,11 @@ PUBLIC_IP="$(curl -4 -fsSL https://ifconfig.me/ip 2>/dev/null || curl -4 -fsSL h
 sed -i "s|__RUNNER_IP__|$PUBLIC_IP|g" "$ENV_FILE" 2>/dev/null || true
 
 bash "$DEST/deploy/install-runner.sh"
-bash "$DEST/deploy/install-acp-clis.sh" "$ENV_FILE"
 
 if [ -n "${GITHUB_TOKEN:-}" ]; then
   export PMM_DIR=/projects/pmm PMM_QA_DIR=/projects/pmm-qa TICKET_KEY="${TICKET_KEY:-}"
   bash "$DEST/sandbox/setup-pmm-workspace.sh" || echo "[bootstrap-runner] workspace setup warning (non-fatal)"
 fi
 
-chown -R agentcanvas:agentcanvas /projects/pmm /projects/pmm-qa 2>/dev/null || true
-
-install -m 0644 "$DEST/deploy/systemd/agent-canvas.service" /etc/systemd/system/agent-canvas.service
-systemctl daemon-reload
-systemctl enable agent-canvas
-systemctl restart agent-canvas
-sleep 5
-
-echo "[bootstrap-runner] sandbox backend ready ticket=${TICKET_KEY:-unknown} ip=${PUBLIC_IP}"
+touch /var/lib/pmm-agentic-flow/runner-ready
+echo "[bootstrap-runner] QA runner ready ticket=${TICKET_KEY:-unknown} ip=${PUBLIC_IP}"

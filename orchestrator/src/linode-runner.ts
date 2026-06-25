@@ -1,11 +1,10 @@
+import net from "node:net";
 import type { Env, StackConfig } from "./config.js";
 import { linodeRunnerSettings } from "./config.js";
 
 export type RunnerRecord = {
   linodeId: number;
   ip: string;
-  canvasBaseUrl: string;
-  canvasPublicUrl: string;
 };
 
 export class LinodeRunnerClient {
@@ -27,7 +26,7 @@ export class LinodeRunnerClient {
 
   async provisionRunner(ticketKey: string): Promise<RunnerRecord> {
     if (!this.enabled) {
-      throw new Error("LINODE_TOKEN not set — cannot provision chat runner");
+      throw new Error("LINODE_TOKEN not set — cannot provision QA runner");
     }
     if (!this.env.workerRootPassword) {
       throw new Error("WORKER_ROOT_PASSWORD required to create runner Linodes");
@@ -37,12 +36,7 @@ export class LinodeRunnerClient {
     const existing = await this.findRunnerByLabel(label);
     if (existing) {
       const ip = existing.ipv4?.[0] ?? (await this.waitForIp(existing.id));
-      return {
-        linodeId: existing.id,
-        ip,
-        canvasBaseUrl: `http://${ip}:8000`,
-        canvasPublicUrl: `http://${ip}:8000`,
-      };
+      return { linodeId: existing.id, ip };
     }
 
     const userData = this.buildCloudInit(ticketKey);
@@ -56,7 +50,7 @@ export class LinodeRunnerClient {
         type: this.type,
         image: "linode/ubuntu24.04",
         root_pass: this.env.workerRootPassword,
-        tags: ["agentic-flow", "chat-runner", ticketKey.toLowerCase()],
+        tags: ["agentic-flow", "qa-runner", ticketKey.toLowerCase()],
         metadata: { user_data: Buffer.from(userData).toString("base64") },
       }),
     });
@@ -67,12 +61,7 @@ export class LinodeRunnerClient {
         const retry = await this.findRunnerByLabel(label);
         if (retry) {
           const ip = retry.ipv4?.[0] ?? (await this.waitForIp(retry.id));
-          return {
-            linodeId: retry.id,
-            ip,
-            canvasBaseUrl: `http://${ip}:8000`,
-            canvasPublicUrl: `http://${ip}:8000`,
-          };
+          return { linodeId: retry.id, ip };
         }
       }
       throw new Error(`Linode create failed (${res.status}): ${body}`);
@@ -81,12 +70,7 @@ export class LinodeRunnerClient {
     const created = (await res.json()) as { id: number };
     const ip = await this.waitForIp(created.id);
 
-    return {
-      linodeId: created.id,
-      ip,
-      canvasBaseUrl: `http://${ip}:8000`,
-      canvasPublicUrl: `http://${ip}:8000`,
-    };
+    return { linodeId: created.id, ip };
   }
 
   async destroy(linodeId: number): Promise<void> {
@@ -108,28 +92,14 @@ export class LinodeRunnerClient {
     return res.ok;
   }
 
-  async isCanvasReachable(ip: string, timeoutMs = 10_000): Promise<boolean> {
-    try {
-      const res = await fetch(`http://${ip}:8000/health`, {
-        method: "GET",
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      return res.ok;
-    } catch {
-      return false;
-    }
+  async isRunnerReachable(ip: string, timeoutMs = 10_000): Promise<boolean> {
+    return tcpReachable(ip, 22, timeoutMs);
   }
 
-  async waitUntilCanvasReady(ip: string, timeoutMs = 900_000): Promise<boolean> {
+  async waitUntilRunnerReady(ip: string, timeoutMs = 900_000): Promise<boolean> {
     const started = Date.now();
-    const url = `http://${ip}:8000/health`;
     while (Date.now() - started < timeoutMs) {
-      try {
-        const res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(8000) });
-        if (res.ok) return true;
-      } catch {
-        // still booting
-      }
+      if (await this.isRunnerReachable(ip, 8000)) return true;
       await sleep(15_000);
     }
     return false;
@@ -151,11 +121,6 @@ export class LinodeRunnerClient {
   }
 
   private buildCloudInit(ticketKey: string): string {
-    const secret = this.env.agentCanvasSecretKey ?? "";
-    const version = this.env.agentCanvasVersion;
-    const publicBase = this.env.agentCanvasPublicUrl.replace(/\/$/, "");
-    const sandboxPublicUrl = `${publicBase}/sandbox/${ticketKey}`;
-
     return `#cloud-config
 package_update: true
 packages:
@@ -168,19 +133,11 @@ write_files:
     permissions: "0600"
     content: |
       TICKET_KEY=${ticketKey}
-      AGENT_CANVAS_PUBLIC_URL=${sandboxPublicUrl}
-      AGENT_CANVAS_VERSION=${version}
-      LOCAL_BACKEND_API_KEY=${this.env.agentCanvasApiKey}
-      AGENT_CANVAS_API_KEY=${this.env.agentCanvasApiKey}
-      OH_SECRET_KEY=${secret}
-      AGENT_CANVAS_SECRET_KEY=${secret}
       GITHUB_TOKEN=${this.env.githubToken}
-      GITHUB_COPILOT_TOKEN=${this.env.githubCopilotToken ?? this.env.githubToken}
-      CURSOR_API_KEY=${this.env.cursorApiKey ?? ""}
       BOOTSTRAP_DEST=/opt/pmm-agentic-flow/src
 
 runcmd:
-  - mkdir -p /opt/pmm-agentic-flow
+  - mkdir -p /opt/pmm-agentic-flow /var/lib/pmm-agentic-flow
   - git clone ${this.env.bootstrapRepoUrl} /opt/pmm-agentic-flow/src
   - bash /opt/pmm-agentic-flow/src/deploy/bootstrap-runner.sh 2>&1 | tee /var/log/pmm-agentic-flow-runner-bootstrap.log
 `;
@@ -210,6 +167,21 @@ runcmd:
 
 function runnerLabel(ticketKey: string): string {
   return `run-${ticketKey.toLowerCase()}`.slice(0, 32);
+}
+
+function tcpReachable(host: string, port: number, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    const done = (ok: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.on("connect", () => done(true));
+    socket.on("timeout", () => done(false));
+    socket.on("error", () => done(false));
+  });
 }
 
 function sleep(ms: number) {

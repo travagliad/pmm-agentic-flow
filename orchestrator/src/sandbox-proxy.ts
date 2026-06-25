@@ -5,6 +5,8 @@ import httpProxy from "http-proxy";
 import type { Express, Request, Response } from "express";
 import type { TicketRecord } from "./ticket-store.js";
 
+/** @deprecated Debug-only — not wired in index.ts. Runners are QA VMs, not Canvas backends. */
+
 export type TicketLookup = (ticketKey: string) => TicketRecord | undefined;
 
 function runnerTarget(ticket: TicketRecord): string | undefined {

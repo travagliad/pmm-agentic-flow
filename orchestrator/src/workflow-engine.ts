@@ -22,7 +22,8 @@ export type TransitionInput = {
   issue?: IssueContext;
 };
 
-const RUNNER_PHASES: TicketPhase[] = ["ready_for_refinement", "in_progress", "in_qa"];
+const RESUME_PHASES: TicketPhase[] = ["ready_for_refinement", "in_progress", "in_qa"];
+const RUNNER_REQUIRED_PHASES: TicketPhase[] = ["in_qa", "ready_for_merge"];
 const RESUME_COOLDOWN_MS = 120_000;
 
 export class WorkflowEngine {
@@ -84,7 +85,6 @@ export class WorkflowEngine {
 
     switch (phase) {
       case "ready_for_refinement": {
-        await this.ensureRunner(ticket);
         await this.dispatchCommand(ticket, buildProposePrompt(ticket, this.stack, input.issue ?? {}));
         break;
       }
@@ -92,10 +92,8 @@ export class WorkflowEngine {
         this.store.log(ticket, "Human gate: PO reviews spec PR.");
         break;
       case "in_progress": {
-        await this.ensureRunner(ticket);
         await this.syncFbArtifacts(ticket, false);
         await this.dispatchCommand(ticket, buildApplyPrompt(ticket, this.stack, input.issue ?? {}));
-        await this.postConversationLink(ticket);
         break;
       }
       case "in_review":
@@ -106,10 +104,9 @@ export class WorkflowEngine {
         await this.handleInQa(ticket, input.issue ?? {});
         break;
       case "ready_for_merge": {
-        if (this.sandboxCanvas(ticket)) {
-          await this.dispatchCommand(ticket, buildFinalizePrompt(ticket, this.stack));
-          await this.dispatchCommand(ticket, buildArchivePrompt(ticket));
-        }
+        await this.ensureRunner(ticket);
+        await this.dispatchCommand(ticket, buildFinalizePrompt(ticket, this.stack));
+        await this.dispatchCommand(ticket, buildArchivePrompt(ticket));
         await this.teardownRunner(ticket);
         ticket.phase = "done";
         this.store.save(ticket);
@@ -168,12 +165,23 @@ export class WorkflowEngine {
       throw new Error("FB images required before QA");
     }
 
+    const runnerIp = ticket.runnerIp ?? ticket.workerIp;
     await this.jira.addComment(
       ticket.ticketKey,
-      `QA on sandbox runner (Linode ${ticket.runnerLinodeId}). Same chat continues from Dev — open the ticket chat link below.`,
+      runnerIp
+        ? `QA sandbox runner ready (${runnerIp}, Linode ${ticket.runnerLinodeId}). Chat stays on the control plane — use the ticket chat link below.`
+        : `QA sandbox runner provisioning (Linode ${ticket.runnerLinodeId}). Chat stays on the control plane.`,
     );
 
-    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.stack, ctx));
+    const qaPrompt = [
+      buildQaPrompt(ticket, this.stack, ctx),
+      runnerIp
+        ? `\nSandbox runner (PMM test host): ${runnerIp}\nUse this host for pmm-framework / Playwright against a live PMM instance.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    await this.dispatchCommand(ticket, qaPrompt);
     await this.postAccessBundle(ticket, "in_qa");
   }
 
@@ -198,10 +206,7 @@ export class WorkflowEngine {
   }
 
   async dispatchCommand(ticket: TicketRecord, message: string): Promise<void> {
-    const client = this.sandboxCanvas(ticket);
-    if (!client) {
-      throw new Error(`No sandbox runner for ${ticket.ticketKey} — provision failed or LINODE_TOKEN missing`);
-    }
+    const client = this.controlPlaneCanvas();
 
     const repo = this.stack.dev.repository;
     const branch = this.stack.dev.default_branch;
@@ -214,7 +219,7 @@ export class WorkflowEngine {
       });
       const convId = await client.waitForConversation(start.id);
       ticket.conversationId = convId;
-      this.store.log(ticket, `Started conversation ${convId} on sandbox runner`);
+      this.store.log(ticket, `Started conversation ${convId} on central chat`);
     } else {
       await client.sendMessage(ticket.conversationId, message);
       this.store.log(ticket, `Sent message to conversation ${ticket.conversationId}`);
@@ -224,17 +229,16 @@ export class WorkflowEngine {
   }
 
   async handleInReview(ticket: TicketRecord): Promise<void> {
-    const canvas = this.sandboxCanvas(ticket);
-    if (ticket.conversationId && canvas) {
-      await canvas.sendMessage(ticket.conversationId, buildInReviewNotice(ticket));
+    if (ticket.conversationId) {
+      await this.controlPlaneCanvas().sendMessage(ticket.conversationId, buildInReviewNotice(ticket));
       this.store.log(ticket, "Posted In Review notice to conversation.");
     }
     await this.postAccessBundle(ticket, "in_review");
   }
 
   async refreshAccessLinks(ticket: TicketRecord, reason: string): Promise<void> {
-    const canvas = this.sandboxCanvas(ticket);
-    if (!ticket.conversationId || !canvas) return;
+    if (!ticket.conversationId) return;
+    const canvas = this.controlPlaneCanvas();
     await sleep(3000);
     const urls = await canvas.getAccessUrls(ticket.conversationId);
     ticket.accessUrls = urls;
@@ -253,7 +257,7 @@ export class WorkflowEngine {
 
     const ticket = this.store.get(key);
     if (!ticket || ticket.phase === "done" || ticket.phase === "ready_for_work") return;
-    if (!RUNNER_PHASES.includes(ticket.phase)) return;
+    if (!RESUME_PHASES.includes(ticket.phase)) return;
 
     this.resumeLastAttempt.set(key, Date.now());
     this.resumeInFlight.add(key);
@@ -261,12 +265,21 @@ export class WorkflowEngine {
   }
 
   private async checkAndResume(ticket: TicketRecord): Promise<void> {
+    if (ticket.conversationId && !(await this.conversationExistsOnControlPlane(ticket))) {
+      this.store.log(
+        ticket,
+        `Conversation ${ticket.conversationId} not on control plane — clearing for recreation`,
+      );
+      ticket.conversationId = undefined;
+      this.store.save(ticket);
+    }
+
     const stalled = await this.isRunnerStalled(ticket);
     if (!stalled) return;
 
     const statusName = this.statusForPhase(ticket.phase);
     if (!statusName) return;
-    this.store.log(ticket, "Auto-resuming stalled ticket (runner missing or unreachable)");
+    this.store.log(ticket, "Auto-resuming stalled ticket (conversation or sandbox runner missing)");
     try {
       await this.handleTransition({
         ticketKey: ticket.ticketKey,
@@ -286,6 +299,8 @@ export class WorkflowEngine {
 
   private async isRunnerStalled(ticket: TicketRecord): Promise<boolean> {
     if (!ticket.conversationId) return true;
+    if (!(await this.conversationExistsOnControlPlane(ticket))) return true;
+    if (!RUNNER_REQUIRED_PHASES.includes(ticket.phase)) return false;
 
     const linodeId = ticket.runnerLinodeId ?? ticket.workerLinodeId;
     const ip = ticket.runnerIp ?? ticket.workerIp;
@@ -293,7 +308,7 @@ export class WorkflowEngine {
 
     const exists = await this.runner.instanceExists(linodeId);
     if (!exists) return true;
-    return !(await this.runner.isCanvasReachable(ip));
+    return !(await this.runner.isRunnerReachable(ip));
   }
 
   private statusForPhase(phase: TicketPhase): string | undefined {
@@ -324,7 +339,7 @@ export class WorkflowEngine {
 
     if (linodeId && existingIp) {
       const exists = await this.runner.instanceExists(linodeId);
-      const healthy = exists && (await this.runner.isCanvasReachable(existingIp));
+      const healthy = exists && (await this.runner.isRunnerReachable(existingIp));
       if (healthy) {
         ticket.runnerIp = existingIp;
         return;
@@ -349,7 +364,7 @@ export class WorkflowEngine {
 
     await this.jira.addComment(
       ticket.ticketKey,
-      "Provisioning dedicated sandbox runner (backend-only Agent Canvas, no UI on runner)…",
+      "Provisioning sandbox runner for QA/test execution (workspace on remote VM, chat stays on control plane)…",
     );
 
     const provisioned = await this.runner.provisionRunner(ticket.ticketKey);
@@ -361,26 +376,31 @@ export class WorkflowEngine {
 
     await this.jira.addComment(
       ticket.ticketKey,
-      `Sandbox runner ready internally. Chat UI: ${ticketChatUrl(this.env, ticket.ticketKey)}`,
+      `Sandbox runner ready at ${provisioned.ip} (Linode ${provisioned.linodeId}). Central chat: ${ticketChatUrl(this.env, ticket.ticketKey)}`,
     );
 
-    const ready = await this.runner.waitUntilCanvasReady(provisioned.ip);
+    const ready = await this.runner.waitUntilRunnerReady(provisioned.ip);
     if (!ready) {
       await this.jira.addComment(
         ticket.ticketKey,
-        `Sandbox runner ${provisioned.ip}: agent-server did not respond on :8000 within timeout.`,
+        `Sandbox runner ${provisioned.ip}: SSH did not become reachable within timeout.`,
       );
     }
   }
 
-  /** Agent-server on the per-ticket sandbox (orchestrator triggers only). */
-  private sandboxCanvas(ticket: TicketRecord): OpenHandsClient | undefined {
-    const ip = ticket.runnerIp ?? ticket.workerIp;
-    if (!ip) return undefined;
-    return new OpenHandsClient(this.env, {
-      baseUrl: `http://${ip}:8000`,
-      publicUrl: this.env.agentCanvasPublicUrl,
-    });
+  /** Central control-plane Canvas — all ticket conversations live here. */
+  private controlPlaneCanvas(): OpenHandsClient {
+    return new OpenHandsClient(this.env);
+  }
+
+  private async conversationExistsOnControlPlane(ticket: TicketRecord): Promise<boolean> {
+    if (!ticket.conversationId) return false;
+    try {
+      await this.controlPlaneCanvas().getConversation(ticket.conversationId);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async postConversationLink(ticket: TicketRecord): Promise<void> {
@@ -393,8 +413,6 @@ export class WorkflowEngine {
   private async postAccessBundle(ticket: TicketRecord, reason: string): Promise<void> {
     const { comments } = this.workflow.jira;
     const lines: string[] = [`*Sandbox access* (${reason})`, ""];
-    const canvas = this.sandboxCanvas(ticket);
-
     if (ticket.conversationId) {
       lines.push(
         comments.conversation.replace("{url}", ticketChatUrl(this.env, ticket.ticketKey)),
@@ -408,6 +426,10 @@ export class WorkflowEngine {
     }
     if (ticket.devPrUrl) {
       lines.push(comments.dev_pr.replace("{url}", ticket.devPrUrl));
+    }
+    const runnerIp = ticket.runnerIp ?? ticket.workerIp;
+    if (runnerIp) {
+      lines.push(`Sandbox runner: ${runnerIp}`);
     }
 
     for (const u of ticket.accessUrls) {

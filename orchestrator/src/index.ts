@@ -2,7 +2,6 @@ import express from "express";
 import { z } from "zod";
 import { chatBootstrapHtml } from "./chat-bootstrap.js";
 import { loadEnv, loadJiraWorkflow, loadStackConfig } from "./config.js";
-import { attachSandboxProxy } from "./sandbox-proxy.js";
 import { WorkflowEngine } from "./workflow-engine.js";
 
 const transitionSchema = z.object({
@@ -130,8 +129,6 @@ function main() {
     res.type("html").send(chatBootstrapHtml(engine.getTicket(key) ?? ticket, env));
   });
 
-  const { attachUpgrade } = attachSandboxProxy(app, (key) => engine.getTicket(key));
-
   app.post("/hooks/jira", async (req, res) => {
     if (env.jiraWebhookSecret) {
       const secret = req.header("x-webhook-secret");
@@ -164,7 +161,7 @@ function main() {
     }
   });
 
-  const server = app.listen(env.orchestratorPort, () => {
+  app.listen(env.orchestratorPort, () => {
     console.log(`Orchestrator listening on :${env.orchestratorPort}`);
     console.log(`Dev repo: ${stack.dev.repository}`);
     console.log(`QA repo: ${stack.qa.repository}`);
@@ -174,8 +171,6 @@ function main() {
     console.log(`Health: GET /orchestrator/health`);
     console.log(`Transition: POST /orchestrator/tickets/transition`);
   });
-
-  attachUpgrade(server);
 }
 
 main();
