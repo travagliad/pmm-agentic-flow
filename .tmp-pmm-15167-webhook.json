@@ -1,9 +1,0 @@
-{
-  "issue": {
-    "key": "PMM-15167",
-    "fields": {
-      "summary": "[RTA] Real-Time Query Analytics for PostgreSQL",
-      "status": { "name": "In Progress" }
-    }
-  }
-}

@@ -13,3 +13,4 @@ state/
 workspace/
 data/
 .secrets/
+.tmp-*

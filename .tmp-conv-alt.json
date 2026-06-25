@@ -1,7 +1,0 @@
-{
-  "initial_message": {
-    "content": [{ "type": "text", "text": "ping" }]
-  },
-  "selected_repository": "percona/pmm",
-  "selected_branch": "main"
-}

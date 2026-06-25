@@ -1,9 +1,0 @@
-{
-  "workspace": {
-    "working_dir": "/projects/pmm",
-    "kind": "LocalWorkspace"
-  },
-  "initial_message": {
-    "content": [{ "text": "ping test" }]
-  }
-}
