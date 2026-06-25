@@ -100,6 +100,26 @@ export class LinodeRunnerClient {
     }
   }
 
+  async instanceExists(linodeId: number): Promise<boolean> {
+    if (!this.enabled) return false;
+    const res = await fetch(`https://api.linode.com/v4/linode/instances/${linodeId}`, {
+      headers: this.headers(),
+    });
+    return res.ok;
+  }
+
+  async isCanvasReachable(ip: string, timeoutMs = 10_000): Promise<boolean> {
+    try {
+      const res = await fetch(`http://${ip}:8000/health`, {
+        method: "GET",
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async waitUntilCanvasReady(ip: string, timeoutMs = 900_000): Promise<boolean> {
     const started = Date.now();
     const url = `http://${ip}:8000/health`;

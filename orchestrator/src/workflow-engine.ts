@@ -238,17 +238,62 @@ export class WorkflowEngine {
     await this.postAccessBundle(ticket, reason);
   }
 
+  async retryTicket(ticketKey: string, issue: IssueContext = {}): Promise<TicketRecord> {
+    const ticket = this.store.get(ticketKey);
+    if (!ticket) {
+      throw new Error(`Ticket ${ticketKey} not found`);
+    }
+    const statusName = this.statusForPhase(ticket.phase);
+    if (!statusName) {
+      throw new Error(`Cannot retry ticket in phase ${ticket.phase}`);
+    }
+    return this.handleTransition({
+      ticketKey,
+      statusName,
+      issue,
+    });
+  }
+
+  private statusForPhase(phase: TicketPhase): string | undefined {
+    const s = this.workflow.jira.statuses;
+    const map: Record<TicketPhase, string | undefined> = {
+      ready_for_refinement: s.ready_for_refinement,
+      ready_for_work: s.ready_for_work,
+      in_progress: s.in_progress,
+      in_review: s.in_review,
+      in_qa: s.in_qa,
+      ready_for_merge: s.ready_for_merge,
+      done: undefined,
+    };
+    return map[phase];
+  }
+
+  private clearRunnerFields(ticket: TicketRecord): void {
+    ticket.runnerLinodeId = undefined;
+    ticket.runnerIp = undefined;
+    ticket.workerLinodeId = undefined;
+    ticket.workerIp = undefined;
+    ticket.workerHostname = undefined;
+  }
+
   private async ensureRunner(ticket: TicketRecord): Promise<void> {
     const existingIp = ticket.runnerIp ?? ticket.workerIp;
-    if (ticket.runnerLinodeId && existingIp) {
-      ticket.runnerIp = existingIp;
-      const ready = await this.runner.waitUntilCanvasReady(existingIp, 120_000);
-      if (!ready) {
-        throw new Error(
-          `Sandbox runner ${existingIp} is not responding on :8000 — wait for bootstrap or recreate the Linode`,
-        );
+    const linodeId = ticket.runnerLinodeId ?? ticket.workerLinodeId;
+
+    if (linodeId && existingIp) {
+      const exists = await this.runner.instanceExists(linodeId);
+      const healthy = exists && (await this.runner.isCanvasReachable(existingIp));
+      if (healthy) {
+        ticket.runnerIp = existingIp;
+        return;
       }
-      return;
+
+      this.store.log(
+        ticket,
+        `Stale sandbox runner (Linode ${linodeId}, ${existingIp}) — reprovisioning`,
+      );
+      this.clearRunnerFields(ticket);
+      this.store.save(ticket);
     }
 
     if (!this.runner.enabled) {

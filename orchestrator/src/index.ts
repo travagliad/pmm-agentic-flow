@@ -105,6 +105,22 @@ function main() {
     }
   });
 
+  api.post("/tickets/:key/retry", auth, async (req, res) => {
+    try {
+      const key = String(req.params.key).toUpperCase();
+      const body = z
+        .object({
+          summary: z.string().optional(),
+          description: z.string().optional(),
+        })
+        .parse(req.body ?? {});
+      const ticket = await engine.retryTicket(key, body);
+      res.status(202).json(ticket);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   api.post("/tickets/:key/refresh-access", auth, async (req, res) => {
     const key = String(req.params.key).toUpperCase();
     const ticket = engine.getTicket(key);
