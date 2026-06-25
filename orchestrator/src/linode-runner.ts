@@ -175,6 +175,8 @@ write_files:
       OH_SECRET_KEY=${secret}
       AGENT_CANVAS_SECRET_KEY=${secret}
       GITHUB_TOKEN=${this.env.githubToken}
+      GITHUB_COPILOT_TOKEN=${this.env.githubCopilotToken ?? this.env.githubToken}
+      CURSOR_API_KEY=${this.env.cursorApiKey ?? ""}
       BOOTSTRAP_DEST=/opt/pmm-agentic-flow/src
 
 runcmd:

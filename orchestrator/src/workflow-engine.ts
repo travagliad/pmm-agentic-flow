@@ -23,6 +23,7 @@ export type TransitionInput = {
 };
 
 const RUNNER_PHASES: TicketPhase[] = ["ready_for_refinement", "in_progress", "in_qa"];
+const RESUME_COOLDOWN_MS = 120_000;
 
 export class WorkflowEngine {
   private readonly store: TicketStore;
@@ -30,6 +31,7 @@ export class WorkflowEngine {
   private readonly fb: FbResolver;
   private readonly runner: LinodeRunnerClient;
   private readonly resumeInFlight = new Set<string>();
+  private readonly resumeLastAttempt = new Map<string, number>();
 
   constructor(
     private readonly env: Env,
@@ -246,6 +248,9 @@ export class WorkflowEngine {
     const key = ticketKey.toUpperCase();
     if (this.resumeInFlight.has(key)) return;
 
+    const last = this.resumeLastAttempt.get(key) ?? 0;
+    if (Date.now() - last < RESUME_COOLDOWN_MS) return;
+
     const ticket = this.store.get(key);
     if (!ticket || ticket.phase === "done" || ticket.phase === "ready_for_work") return;
     if (!RUNNER_PHASES.includes(ticket.phase)) return;
@@ -261,6 +266,7 @@ export class WorkflowEngine {
     const statusName = this.statusForPhase(ticket.phase);
     if (!statusName) return;
 
+    this.resumeLastAttempt.set(ticket.ticketKey, Date.now());
     this.store.log(ticket, "Auto-resuming stalled ticket (runner missing or unreachable)");
     try {
       await this.handleTransition({
