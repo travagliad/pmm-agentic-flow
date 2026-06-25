@@ -29,7 +29,20 @@ curl -fsS --connect-timeout 5 "http://127.0.0.1:8080/orchestrator/health" || ech
 
 echo ""
 echo "==> agent-server :18000 (inside container)"
-docker exec agent-canvas wget -qO- --timeout=3 http://127.0.0.1:18000/health 2>&1 || echo "FAIL — agent-server not running (Manage Backends will show Disconnected)"
+if docker exec agent-canvas wget -qO- --timeout=8 http://127.0.0.1:18000/health 2>/dev/null | head -c 200; then
+  echo ""
+  echo "OK — agent-server healthy"
+else
+  echo "FAIL — agent-server not running (Manage Backends will show Disconnected)"
+fi
+
+echo ""
+echo "==> proxy :8000/health"
+curl -fsS --connect-timeout 8 "http://127.0.0.1:8000/health" && echo "" || echo "FAIL — frontend proxy health"
+
+echo ""
+echo "==> docker health status"
+docker inspect agent-canvas --format 'health={{.State.Health.Status}}' 2>/dev/null || true
 
 echo ""
 echo "==> orchestrator (last 15 lines)"

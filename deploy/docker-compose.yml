@@ -54,10 +54,11 @@ services:
     ports:
       - "8000:8000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
+      # Proxy :8000/health can lag under load; agent-server :18000 is what "Disconnected" means.
+      test: ["CMD-SHELL", "wget -qO- --timeout=8 http://127.0.0.1:18000/health >/dev/null && wget -qO- --timeout=8 http://127.0.0.1:8000/health >/dev/null"]
       interval: 30s
-      timeout: 10s
-      retries: 15
+      timeout: 15s
+      retries: 5
       start_period: 180s
 
   orchestrator:
