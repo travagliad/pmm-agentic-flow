@@ -50,6 +50,7 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
   }
 
   const conversationUrl = `${publicBase}/conversations/${conversationId}`;
+  const apiKey = env.agentCanvasApiKey;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -62,27 +63,18 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
   const backendName = ${JSON.stringify(ticketKey)};
   const conversationUrl = ${JSON.stringify(conversationUrl)};
   const publicBase = ${JSON.stringify(publicBase)};
+  const apiKey = ${JSON.stringify(apiKey)};
   const configKey = "openhands-agent-server-config";
   const backendsKey = "openhands-backends";
   const activeKey = "openhands-active-backend";
 
-  let apiKey = "";
   try {
     const cfg = JSON.parse(localStorage.getItem(configKey) || "{}");
-    apiKey = cfg.sessionApiKey || "";
+    if (!cfg.sessionApiKey) {
+      cfg.sessionApiKey = apiKey;
+      localStorage.setItem(configKey, JSON.stringify(cfg));
+    }
   } catch (_) {}
-
-  if (!apiKey) {
-    sessionStorage.setItem("pmm-chat-return", conversationUrl);
-    sessionStorage.setItem("pmm-pending-backend", JSON.stringify({
-      id: backendId,
-      name: backendName,
-      host: backendHost,
-      kind: "local"
-    }));
-    location.replace(publicBase + "/");
-    return;
-  }
 
   let backends = [];
   try {
