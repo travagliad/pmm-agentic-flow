@@ -33,8 +33,9 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 3. Implement tasks; check off `tasks.md`.
 4. Commit: `PMM-15167: short imperative message` (see `docs/agent-conventions.md`).
 5. PR title: `PMM-15167: Summary from Jira` — no brackets, no `OpenSpec:` prefix.
-6. Use `gh pr … --repo percona/pmm` for PRs; Jira via curl (`docs/jira-api.md`). See `docs/github-cli.md` if gh needs `read:org`.
-7. Open `Percona-Lab/pmm-submodules` PR when ready for FB build (separate repo).
+6. **One PR:** on apply, `gh pr edit` the existing draft from propose — same branch, rewrite body for implementation. Do not open a second PR.
+7. Use `gh pr … --repo percona/pmm` for PRs; Jira via curl (`docs/jira-api.md`). See `docs/github-cli.md` if gh needs `read:org`.
+8. Open `Percona-Lab/pmm-submodules` PR when ready for FB build (separate repo).
 
 ## PMM multi-repo
 

@@ -25,8 +25,8 @@ Phases: `SPEC_DRAFT` | `SPEC_REVIEW` | `IN_PROGRESS` | `IN_REVIEW` | `IN_QA` | `
 | Message | Action |
 |---------|--------|
 | `/opsx:explore` | Optional discovery — no PR |
-| `/opsx:propose <TICKET>` | Create OpenSpec; **spec-only draft PR** on `percona/pmm` |
-| `/opsx:apply` | Setup workspace; **build until green**; dev PR |
+| `/opsx:propose <TICKET>` | OpenSpec files + **one draft PR** (spec review) |
+| `/opsx:apply` | Implementation on **same branch/PR** — rewrite PR body, push code |
 | `/agent:qa` | QA on `pmm-qa` with FB images on sandbox runner |
 | `/agent:finalize` | Full suite; `pmm-qa` PR; archive; signal teardown |
 | `/opsx:archive` | Fold specs into main tree after merge |
@@ -59,6 +59,14 @@ Repeat until `make build` (or repo-specific build) passes:
 If `make` or toolchain is missing, install via `apt` / repo docs — **do not** skip full build and report success.
 
 Max build iterations: 5 (then stop and report blockers).
+
+## PR lifecycle (one PR per ticket)
+
+1. **Propose:** draft PR titled `PMM-XXXX: <Jira summary>`. Body leads with feature summary, not "OpenSpec proposal for…".
+2. **Apply:** same branch, **same PR** — `gh pr edit` new title/body, push code, `gh pr ready` when done.
+3. Never open a second PR for the same ticket. Store URL in `specPrUrl` / `devPrUrl` in state.json.
+
+See `docs/agent-conventions.md`.
 
 ## PR titles
 

@@ -8,28 +8,51 @@ APT_INSTALL=(apt-get install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Opti
 apt-get update
 "${APT_INSTALL[@]}" make build-essential git curl ca-certificates
 
-# Docker for PMM devcontainer / pmm-framework (runners already install docker)
 if ! command -v docker >/dev/null 2>&1; then
   "${APT_INSTALL[@]}" docker.io
   systemctl enable --now docker 2>/dev/null || true
 fi
 
-# Yarn via corepack (Node 22 ships corepack; must be enabled for all users)
-if command -v corepack >/dev/null 2>&1; then
-  corepack enable
-  corepack prepare yarn@1.22.22 --activate 2>/dev/null || corepack prepare yarn@stable --activate
-fi
-# Ensure yarn on PATH for non-login shells (agent-canvas subprocesses)
-if command -v corepack >/dev/null 2>&1 && ! command -v yarn >/dev/null 2>&1; then
-  ln -sf "$(command -v corepack)" /usr/local/bin/yarn 2>/dev/null || true
+# Node/yarn must exist before this script (install-control-plane runs first).
+if ! command -v node >/dev/null 2>&1; then
+  echo "[install-build-tools] FATAL: node missing — run install-control-plane.sh first" >&2
+  exit 1
 fi
 
-# Go (host tests; full make build still prefers devcontainer: make env-up && make env TARGET=build)
-if ! command -v go >/dev/null 2>&1; then
-  "${APT_INSTALL[@]}" golang-go
+if ! command -v yarn >/dev/null 2>&1; then
+  echo "[install-build-tools] installing yarn via npm"
+  npm install -g yarn@1.22.22
 fi
+
+if ! command -v go >/dev/null 2>&1; then
+  echo "[install-build-tools] installing golang-go"
+  "${APT_INSTALL[@]}" golang-go || true
+fi
+
+if ! command -v go >/dev/null 2>&1; then
+  echo "[install-build-tools] installing Go from go.dev"
+  GO_VER=1.24.2
+  ARCH=$(dpkg --print-architecture)
+  case "$ARCH" in
+    amd64) GO_ARCH=amd64 ;;
+    arm64) GO_ARCH=arm64 ;;
+    *) echo "unsupported arch $ARCH" >&2; exit 1 ;;
+  esac
+  curl -fsSL "https://go.dev/dl/go${GO_VER}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tar.gz
+  rm -rf /usr/local/go
+  tar -C /usr/local -xzf /tmp/go.tar.gz
+  ln -sf /usr/local/go/bin/go /usr/local/bin/go
+  ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+fi
+
+for cmd in make go yarn node; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "[install-build-tools] FATAL: $cmd not on PATH after install" >&2
+    exit 1
+  fi
+done
 
 echo "[install-build-tools] make=$(make --version | head -1)"
-echo "[install-build-tools] go=$(go version 2>/dev/null || echo missing)"
-echo "[install-build-tools] yarn=$(yarn --version 2>/dev/null || echo missing)"
-echo "[install-build-tools] docker=$(docker --version 2>/dev/null || echo missing)"
+echo "[install-build-tools] go=$(go version)"
+echo "[install-build-tools] yarn=$(yarn --version)"
+echo "[install-build-tools] node=$(node --version)"

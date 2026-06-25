@@ -1,4 +1,5 @@
 import type { Env, JiraWorkflowConfig, StackConfig } from "./config.js";
+import { mergeAgentStateIntoTicket } from "./agent-state.js";
 import { ticketChatUrl } from "./chat-bootstrap.js";
 import {
   buildApplyPrompt,
@@ -93,6 +94,9 @@ export class WorkflowEngine {
         break;
       case "in_progress": {
         await this.syncFbArtifacts(ticket, false);
+        mergeAgentStateIntoTicket(ticket);
+        if (ticket.specPrUrl && !ticket.devPrUrl) ticket.devPrUrl = ticket.specPrUrl;
+        this.store.save(ticket);
         await this.dispatchCommand(ticket, buildApplyPrompt(ticket, this.stack, input.issue ?? {}));
         break;
       }

@@ -34,6 +34,13 @@ export function featureBranchForTicket(ticketKey: string, changeId: string): str
   return `agent/${ticketKey.toUpperCase()}-${slug}`;
 }
 
+/** One PR per ticket — propose opens draft; apply updates the same PR with code. */
+export function existingPrHint(ticket: TicketRecord): string {
+  const url = ticket.devPrUrl ?? ticket.specPrUrl;
+  if (!url) return "No PR in ticket store yet — if propose ran, find it: gh pr list --repo percona/pmm --head agent/";
+  return `Reuse this PR (do NOT open another): ${url}`;
+}
+
 export function buildProposePrompt(
   ticket: TicketRecord,
   config: StackConfig,
@@ -60,8 +67,10 @@ export function buildProposePrompt(
     "2. Create openspec/changes/<changeId>/ with proposal.md, specs/, design.md, tasks.md.",
     "3. Jira: curl -u \"\\${JIRA_EMAIL}:\\${JIRA_API_TOKEN}\" \"\\${JIRA_BASE_URL}/rest/api/3/issue/<KEY>\" (see docs/jira-api.md).",
     `4. Branch ${branch}; commit spec files only.`,
-    `5. Open DRAFT PR on percona/pmm titled exactly: ${prTitle}`,
-    "6. Output JIRA_UPDATE block with spec_pr URL.",
+    `5. Open ONE DRAFT PR on percona/pmm — title exactly: ${prTitle}`,
+    "   PR body: lead with ## Summary (feature from Jira, not 'OpenSpec proposal for…').",
+    "   Then ## OpenSpec (draft) with file paths. No 'Made with Cursor'.",
+    "6. Output JIRA_UPDATE with spec_pr URL (apply phase will reuse the same PR).",
     "",
     ctx.summary ? `Summary: ${ctx.summary}` : "",
     ctx.description ? `Description:\n${ctx.description}` : "",
@@ -90,6 +99,16 @@ export function buildApplyPrompt(
     `PR title: ${prTitle}`,
     `Phase: IN_PROGRESS`,
     "",
+    existingPrHint(ticket),
+    "",
+    "PR (same branch, same PR as spec — mandatory):",
+    `1. Work on branch ${branch}; push implementation commits.`,
+    `2. gh pr edit --repo percona/pmm <number> --title ${JSON.stringify(prTitle)}`,
+    "3. Rewrite PR body: ## Summary (implementation), ## Changes (agent/ui/api paths),",
+    "   ## OpenSpec (link to changes/<changeId>/), ## Test plan (unchecked CI items).",
+    "   Remove 'OpenSpec proposal' / spec-only wording. Do not open a second PR.",
+    "4. When lint/tests pass: gh pr ready --repo percona/pmm <number>",
+    "",
     "Dev environment (local build on control plane — like a developer laptop):",
     "1. Work in /projects/pmm and /projects/pmm-qa.",
     "2. Run sandbox/setup-pmm-workspace.sh on the feature branch if needed.",
@@ -110,8 +129,8 @@ export function buildApplyPrompt(
     "Rules:",
     "- Edit pmm (or grafana) application code ONLY.",
     "- Do NOT write pmm-qa tests yet.",
-    `- Push to ${branch}; open/update dev PR titled: ${prTitle}`,
-    "- Output JIRA_UPDATE with dev_pr (and submodules PR if opened).",
+    `- Push to ${branch}; update the existing PR (see above) — title: ${prTitle}`,
+    "- Output JIRA_UPDATE with dev_pr (same URL as spec_pr if one PR).",
     "",
     ticket.fbServerImage
       ? `FB images already published (for later QA): ${ticket.fbServerImage}`

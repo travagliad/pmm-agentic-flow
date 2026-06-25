@@ -25,6 +25,16 @@ Rules:
 - No `OpenSpec:` prefix in the PR title (OpenSpec lives under `openspec/changes/` in the branch — that is enough)
 - Commits use the same prefix: `PMM-15167: <short imperative>`
 
+## One PR per ticket (propose → apply)
+
+| Phase | PR |
+|-------|-----|
+| Propose | Open **one** draft PR on `agent/<ticket>-<slug>`. Body: `## Summary` (feature), `## OpenSpec (draft)`, `## Test plan` (spec review checkboxes). |
+| Apply | **Same PR** — push implementation commits, `gh pr edit` to replace body with implementation summary + changes + test plan. Remove spec-only wording. |
+| Ready | `gh pr ready` after `make -C ui lint` / verify script passes. |
+
+Forbidden: title/body starting with "OpenSpec proposal for…"; footer "Made with Cursor"; opening a second PR on apply.
+
 ## Agent state file
 
 `/projects/.agent/state.json` — ticket phase, `buildIteration`, PR URLs.

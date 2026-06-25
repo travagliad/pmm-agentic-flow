@@ -8,7 +8,7 @@ jira:
     in_qa: "In QA"
     ready_for_merge: "Ready for Merge"
   comments:
-    spec_pr: "OpenSpec draft PR: {url}"
+    spec_pr: "Feature PR (spec): {url}"
     dev_pr: "Development PR: {url}"
     qa_pr: "QA automation PR: {url}"
     test_instance: "PMM test instance: {url}"
