@@ -16,8 +16,8 @@ echo "    Canvas: http://$IP:8000/"
 echo "    Webhook: http://$IP:8080/hooks/jira"
 
 echo ""
-echo "==> ufw (host firewall)"
-ufw status 2>/dev/null | grep -E '8000|8080|Status' || true
+echo "==> External access (Cloud Firewall — not ufw)"
+echo "    If browser cannot reach :8000, run: bash scripts/open-linode-firewall.sh"
 
 echo ""
 echo "==> curl agent-canvas (localhost — if FAIL, not a Linode firewall issue)"
