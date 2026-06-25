@@ -79,4 +79,4 @@ export CURSOR_API_KEY=crsr_...
 agent -p "Explain this repo in one paragraph"
 ```
 
-Precisa do CLI instalado automaticamente pelo entrypoint (`/home/openhands/.local/bin/agent`).
+Precisa do CLI instalado automaticamente pelo entrypoint (`/usr/local/bin/agent`).

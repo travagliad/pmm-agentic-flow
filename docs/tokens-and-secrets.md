@@ -45,7 +45,7 @@ Cloud-init sets `AGENT_CANVAS_PUBLIC_URL=http://<ip>:8000` automatically.
 |------|------|
 | Chat interativo no Canvas | Settings → LLM (Anthropic/OpenAI) **ou** ACP — ver [llm-acp.md](./llm-acp.md) |
 | **Cursor subscrição, sem ACP no UI** | **Cloud Agents REST API** — ver [cursor-api.md](./cursor-api.md) |
-| Verificar CLIs na VM | `docker exec agent-canvas ls /home/openhands/.local/bin/` |
+| Verificar CLIs na VM | `docker exec agent-canvas ls -la /usr/local/bin/agent` |
 
 This stack does **not** run LiteLLM. Cursor API key does **not** go in Settings → LLM.
 

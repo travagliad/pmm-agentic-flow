@@ -5,8 +5,9 @@ set -euo pipefail
 OH=/home/openhands/.openhands
 LOCAL=/home/openhands/.local
 ENTRYPOINT="/opt/agent-canvas/entrypoint.sh"
-AGENT_BIN="$LOCAL/bin/agent"
-COPILOT_BIN="$LOCAL/bin/copilot"
+AGENT_BIN=/usr/local/bin/agent
+COPILOT_BIN=/usr/local/bin/copilot
+CURSOR_OPT_DIR=/opt/cursor-agent
 CURL_IPV4_DIR=/tmp/curl-ipv4
 
 canvas_ids() {
@@ -20,9 +21,9 @@ canvas_ids() {
 run_as_openhands() {
   local cmd="$1"
   if id openhands >/dev/null 2>&1; then
-    su -s /bin/bash openhands -c "export HOME=/home/openhands PATH=$CURL_IPV4_DIR:/home/openhands/.local/bin:\$PATH; ${cmd}"
+    su -s /bin/bash openhands -c "export HOME=/home/openhands PATH=$CURL_IPV4_DIR:/usr/local/bin:/home/openhands/.local/bin:\$PATH; ${cmd}"
   else
-    HOME=/home/openhands PATH="$CURL_IPV4_DIR:/home/openhands/.local/bin:$PATH" bash -c "${cmd}"
+    HOME=/home/openhands PATH="$CURL_IPV4_DIR:/usr/local/bin:/home/openhands/.local/bin:$PATH" bash -c "${cmd}"
   fi
 }
 
@@ -35,13 +36,10 @@ EOF
   chmod +x "$CURL_IPV4_DIR/curl"
 }
 
-prepare_local_volume() {
-  mkdir -p \
-    "$LOCAL/bin" \
-    "$LOCAL/share/cursor-agent/versions" \
-    "$LOCAL/share"
-  chown -R "${UID_NUM}:${GID_NUM}" "$LOCAL"
-  chmod -R u+rwX "$LOCAL"
+cursor_lab_version() {
+  local script
+  script="$(PATH="$CURL_IPV4_DIR:$PATH" curl -fsSL https://cursor.com/install)"
+  echo "$script" | grep -oE 'lab/[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9a-f]+' | head -1 | cut -d/ -f2
 }
 
 install_cursor_cli() {
@@ -49,22 +47,28 @@ install_cursor_cli() {
     echo "[entrypoint-wrapper] cursor CLI: $AGENT_BIN"
     return 0
   fi
-  echo "[entrypoint-wrapper] installing cursor CLI (IPv4-only curl)..."
-  local attempt
+  echo "[entrypoint-wrapper] installing cursor CLI to $AGENT_BIN (outside .local volume)..."
+  local version url dest attempt
+  version="$(cursor_lab_version)"
+  if [ -z "$version" ]; then
+    echo "[entrypoint-wrapper] ERROR: could not parse Cursor CLI version from install script" >&2
+    exit 1
+  fi
+  url="https://downloads.cursor.com/lab/${version}/linux/x64/agent-cli-package.tar.gz"
+  dest="${CURSOR_OPT_DIR}/${version}"
   for attempt in 1 2 3; do
-    prepare_local_volume
-    if run_as_openhands 'curl -fsSL https://cursor.com/install | bash'; then
-      prepare_local_volume
-      if [ -x "$AGENT_BIN" ]; then
-        echo "[entrypoint-wrapper] cursor CLI installed: $($AGENT_BIN --version 2>/dev/null || echo ok)"
-        return 0
-      fi
+    rm -rf "$dest"
+    mkdir -p "$dest"
+    if PATH="$CURL_IPV4_DIR:$PATH" curl -fSL "$url" | tar --strip-components=1 -xzf - -C "$dest"; then
+      install -m 0755 "$dest/cursor-agent" "$AGENT_BIN"
+      ln -sf "$AGENT_BIN" /usr/local/bin/cursor-agent
+      echo "[entrypoint-wrapper] cursor CLI installed: $($AGENT_BIN --version 2>/dev/null || echo "$version")"
+      return 0
     fi
-    echo "[entrypoint-wrapper] cursor CLI install attempt ${attempt}/3 failed" >&2
+    echo "[entrypoint-wrapper] cursor CLI download attempt ${attempt}/3 failed" >&2
+    sleep 5
   done
   echo "[entrypoint-wrapper] ERROR: cursor CLI missing at $AGENT_BIN" >&2
-  ls -la "$LOCAL/bin" 2>/dev/null || true
-  ls -la "$LOCAL/share/cursor-agent/versions" 2>/dev/null || true
   exit 1
 }
 
@@ -73,12 +77,13 @@ install_copilot_cli() {
     echo "[entrypoint-wrapper] copilot CLI: $COPILOT_BIN"
     return 0
   fi
-  echo "[entrypoint-wrapper] installing copilot CLI (IPv4-only curl)..."
+  echo "[entrypoint-wrapper] installing copilot CLI..."
   local attempt
   for attempt in 1 2 3; do
-    prepare_local_volume
-    if run_as_openhands 'curl -fsSL https://gh.io/copilot-install | bash'; then
-      prepare_local_volume
+    if run_as_openhands 'PATH=/usr/local/bin:$PATH curl -fsSL https://gh.io/copilot-install | bash'; then
+      if [ -x "$LOCAL/bin/copilot" ] && [ ! -e "$COPILOT_BIN" ]; then
+        ln -sf "$LOCAL/bin/copilot" "$COPILOT_BIN"
+      fi
       if [ -x "$COPILOT_BIN" ]; then
         echo "[entrypoint-wrapper] copilot CLI installed: $($COPILOT_BIN --version 2>/dev/null || echo ok)"
         return 0
@@ -100,13 +105,13 @@ mkdir -p \
   "$OH/automation" \
   "$OH/agent-canvas" \
   "$OH/agent-canvas/conversations" \
-  "$OH/agent-canvas/bash_events"
+  "$OH/agent-canvas/bash_events" \
+  "$LOCAL/bin" \
+  "$CURSOR_OPT_DIR"
 
-chown -R "${UID_NUM}:${GID_NUM}" "$OH"
-chmod -R u+rwX "$OH"
+chown -R "${UID_NUM}:${GID_NUM}" "$OH" "$LOCAL"
+chmod -R u+rwX "$OH" "$LOCAL"
 touch "$OH/automation/.write-test" && rm -f "$OH/automation/.write-test"
-
-prepare_local_volume
 
 install_cursor_cli
 install_copilot_cli

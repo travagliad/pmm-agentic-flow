@@ -49,7 +49,7 @@ services:
       CURSOR_API_KEY: ${CURSOR_API_KEY:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITHUB_COPILOT_TOKEN: ${GITHUB_COPILOT_TOKEN:-}
-      PATH: /home/openhands/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      PATH: /usr/local/bin:/home/openhands/.local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/sbin:/bin
     volumes:
       - agent-canvas-state:/home/openhands/.openhands
       - agent-canvas-local:/home/openhands/.local

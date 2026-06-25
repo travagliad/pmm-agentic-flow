@@ -8,10 +8,10 @@ Agent Canvas supports external agent backends over **ACP** — JSON-RPC 2.0 on s
 
 | CLI | Path | Terraform var |
 |-----|------|---------------|
-| Cursor | `/home/openhands/.local/bin/agent` | `cursor_api_key` |
-| Copilot | `/home/openhands/.local/bin/copilot` | `github_copilot_token` |
+| Cursor | `/usr/local/bin/agent` | `cursor_api_key` |
+| Copilot | `/usr/local/bin/copilot` (symlink) | `github_copilot_token` |
 
-CLIs persist in the `agent-canvas-local` Docker volume.
+Cursor installs to `/usr/local/bin` (not under the `agent-canvas-local` volume — that mount hides `~/.local` from the image).
 
 ### Secrets (`terraform/terraform.tfvars` on your PC)
 
@@ -23,13 +23,13 @@ github_copilot_token = "gho_..."   # optional; defaults to github_token
 ## Canvas UI
 
 1. Open `http://<public_ip>:8000/`
-2. **Manage Backends** → Cursor: `/home/openhands/.local/bin/agent` + args `acp`
-3. Or Copilot: `/home/openhands/.local/bin/copilot` + args `acp`
+2. **Manage Backends** → Cursor: `/usr/local/bin/agent` + args `acp` (or command `agent` if PATH is set)
+3. Or Copilot: `/usr/local/bin/copilot` + args `acp`
 
 ## Verify on the VM
 
 ```bash
-docker exec agent-canvas ls -la /home/openhands/.local/bin/
+docker exec agent-canvas ls -la /usr/local/bin/agent /usr/local/bin/copilot
 ```
 
 ## Re-deploy after secret changes
