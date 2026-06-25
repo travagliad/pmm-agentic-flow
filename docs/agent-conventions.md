@@ -31,7 +31,13 @@ Rules:
 
 ## Jira context
 
-Prefer **Atlassian Rovo MCP** (API token) for issue fields, comments, and acceptance criteria. Do not scrape Jira in the browser unless MCP is unavailable.
+**No Atlassian Rovo MCP** (not authorized). Use REST API with credentials on the host (`docs/jira-api.md`):
+
+```bash
+bash scripts/jira-issue.sh PMM-15167
+```
+
+Orchestrator injects summary/description on webhook transitions; call the API when you need fresh fields mid-chat.
 
 ## PMM codegen and lint
 

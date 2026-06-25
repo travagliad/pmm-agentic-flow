@@ -47,12 +47,12 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   fi
 fi
 
-bash "$DEST/deploy/configure-agent-mcp.sh" "$ENV_FILE"
+install -m 0755 "$DEST/scripts/jira-issue.sh" /opt/pmm-agentic-flow/jira-issue.sh
 
 if [ -n "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
   echo "$GITHUB_TOKEN" | gh auth login --with-token 2>/dev/null || true
   if id agentcanvas >/dev/null 2>&1; then
-  su - agentcanvas -c "echo '$GITHUB_TOKEN' | gh auth login --with-token" 2>/dev/null || true
+    su - agentcanvas -c "echo '$GITHUB_TOKEN' | gh auth login --with-token" 2>/dev/null || true
   fi
 fi
 

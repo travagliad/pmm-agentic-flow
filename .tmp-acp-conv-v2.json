@@ -1,0 +1,17 @@
+{
+  "agent": {
+    "kind": "ACPAgent",
+    "acp_command": ["/usr/local/bin/agent", "acp"],
+    "acp_env": {
+      "CURSOR_API_KEY": "crsr_10c6bd07156a04de8600d6bb832229ed7f1d10498883784a514cb3fd8bd0a259"
+    }
+  },
+  "workspace": {
+    "working_dir": "/projects/pmm",
+    "kind": "LocalWorkspace"
+  },
+  "initial_message": {
+    "content": [{ "text": "ping" }],
+    "run": true
+  }
+}

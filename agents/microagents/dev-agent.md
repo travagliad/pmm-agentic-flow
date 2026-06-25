@@ -33,7 +33,7 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 3. Implement tasks; check off `tasks.md`.
 4. Commit: `PMM-15167: short imperative message` (see `docs/agent-conventions.md`).
 5. PR title: `PMM-15167: Summary from Jira` — no brackets, no `OpenSpec:` prefix.
-6. Use `gh` for PRs; use Atlassian MCP for Jira context (not browser).
+6. Use `gh` for PRs; Jira via `scripts/jira-issue.sh` or REST API (`docs/jira-api.md`) — not browser, not MCP.
 7. Run `verify-pmm-change.sh` then open/update dev PR.
 8. Open `Percona-Lab/pmm-submodules` PR when ready for FB build (separate repo).
 
