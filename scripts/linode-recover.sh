@@ -29,22 +29,29 @@ else
 fi
 
 bash "$DEST/scripts/stack-cleanup.sh" || true
-bash "$DEST/scripts/fix-agent-canvas-volumes.sh" "${AGENT_CANVAS_UID:-1000}"
+bash "$DEST/scripts/fix-agent-canvas-volumes.sh" "${AGENT_CANVAS_UID:-1000}" || true
 
-echo "==> Starting stack (agent-canvas + orchestrator)..."
+echo "==> Starting orchestrator + agent-canvas..."
 cd "$DEST/deploy"
-docker compose --env-file "$DEST/.env" run --rm agent-canvas-init 2>/dev/null || true
+docker compose --env-file "$DEST/.env" run --rm agent-canvas-init
 docker compose --env-file "$DEST/.env" pull
 docker compose --env-file "$DEST/.env" up -d --build --force-recreate --remove-orphans
 
-echo "==> Waiting for agent-canvas (up to 90s)..."
-for i in $(seq 1 18); do
+echo "==> Waiting for agent-canvas (up to 120s)..."
+CANVAS_OK=0
+for i in $(seq 1 24); do
   if curl -fsS --connect-timeout 3 http://127.0.0.1:8000/ >/dev/null 2>&1; then
+    CANVAS_OK=1
     echo "agent-canvas OK"
     break
   fi
   sleep 5
 done
+
+if [ "$CANVAS_OK" -eq 0 ]; then
+  echo "==> Canvas still down (often SQLite volume corruption). Resetting state volume..."
+  ENV_FILE="$DEST/.env" bash "$DEST/scripts/reset-agent-canvas.sh"
+fi
 
 echo ""
 docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
