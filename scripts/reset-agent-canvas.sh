@@ -25,17 +25,17 @@ if docker volume inspect "$VOL" >/dev/null 2>&1; then
 fi
 
 echo "==> Initializing fresh volume (uid $UID_NUM)..."
-$COMPOSE run --rm agent-canvas-init
+$COMPOSE run --rm --no-TTY agent-canvas-init
 
 echo "==> Verifying write access as uid $UID_NUM..."
 docker run --rm -u "${UID_NUM}:${UID_NUM}" -v "${VOL}:/oh" alpine:3.21 sh -c '
-  mkdir -p /oh/storage /oh/workspaces /oh/automation
-  touch /oh/automation/.write-test && rm /oh/automation/.write-test
+  mkdir -p /oh/automation /oh/storage /oh/workspaces /oh/agent-canvas
+  touch /oh/automation/automations.db.test && rm -f /oh/automation/automations.db.test
   echo "volume write OK"
 '
 
 echo "==> Starting agent-canvas..."
-$COMPOSE up -d agent-canvas
+$COMPOSE up -d --force-recreate agent-canvas
 
 echo "==> Waiting for :8000 (up to 120s)..."
 for i in $(seq 1 24); do

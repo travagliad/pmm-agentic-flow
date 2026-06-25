@@ -7,23 +7,28 @@ services:
     environment:
       CANVAS_UID: ${AGENT_CANVAS_UID:-1000}
     volumes:
-      - agent-canvas-state:/state
-      - agent-canvas-projects:/projects
+      - agent-canvas-state:/home/openhands/.openhands
     command:
       - sh
       - -ec
       - |
-        mkdir -p /state/storage /state/workspaces /state/automation /state/agent-canvas
-        mkdir -p /projects
-        chown -R "$${CANVAS_UID}:$${CANVAS_UID}" /state /projects
-        chmod -R u+rwX /state /projects
-        echo "agent-canvas volumes ready for uid $${CANVAS_UID}"
+        mkdir -p /home/openhands/.openhands/storage \
+                 /home/openhands/.openhands/workspaces \
+                 /home/openhands/.openhands/automation \
+                 /home/openhands/.openhands/agent-canvas
+        chown -R "$${CANVAS_UID}:$${CANVAS_UID}" /home/openhands/.openhands
+        chmod -R u+rwX /home/openhands/.openhands
+        touch /home/openhands/.openhands/automation/.write-test
+        rm -f /home/openhands/.openhands/automation/.write-test
+        echo "volume ready for uid $${CANVAS_UID}"
     restart: "no"
 
   agent-canvas:
     image: ghcr.io/openhands/agent-canvas:${AGENT_CANVAS_VERSION:-latest}
     container_name: agent-canvas
     restart: unless-stopped
+    user: "0:0"
+    entrypoint: ["/bin/bash", "/entrypoint-wrapper.sh"]
     depends_on:
       agent-canvas-init:
         condition: service_completed_successfully
@@ -31,22 +36,25 @@ services:
       PORT: "8000"
       LOCAL_BACKEND_API_KEY: ${AGENT_CANVAS_API_KEY}
       OH_SECRET_KEY: ${AGENT_CANVAS_SECRET_KEY}
+      AGENT_CANVAS_UID: ${AGENT_CANVAS_UID:-1000}
       FILE_STORE: local
       LOCAL_STORAGE_PATH: /home/openhands/.openhands/storage
       AUTOMATION_WORKSPACE_BASE: /home/openhands/.openhands/workspaces
       AUTOMATION_BASE_URL: ${AGENT_CANVAS_PUBLIC_URL:-http://127.0.0.1:8000}
+      AUTOMATION_DB_URL: sqlite+aiosqlite:////home/openhands/.openhands/automation/automations.db
     volumes:
       - agent-canvas-state:/home/openhands/.openhands
       - agent-canvas-projects:/projects
       - ../sandbox:/projects/pmm-agentic-flow/sandbox:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./agent-canvas-entrypoint.sh:/entrypoint-wrapper.sh:ro
     ports:
       - "8000:8000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/health"]
       interval: 30s
       timeout: 10s
-      retries: 10
+      retries: 15
       start_period: 180s
 
   orchestrator:
