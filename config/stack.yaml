@@ -11,6 +11,7 @@ dev:
   clone_url: https://github.com/percona/pmm.git
   default_branch: main
   build_command: make build
+  lint_command: make -C ui lint
   alt_repositories:
     - name: grafana
       repository: percona/grafana

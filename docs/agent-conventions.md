@@ -32,3 +32,11 @@ Rules:
 ## Jira context
 
 Prefer **Atlassian Rovo MCP** (API token) for issue fields, comments, and acceptance criteria. Do not scrape Jira in the browser unless MCP is unavailable.
+
+## PMM codegen and lint
+
+See `docs/pmm-dev-workflow.md`. Summary:
+
+- Before PR: `sandbox/verify-pmm-change.sh /projects/pmm`
+- UI: `make -C ui lint`
+- Never `make gen` at repo root; never mass-commit unrelated `api/*.pb.go`

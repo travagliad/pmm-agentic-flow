@@ -7,14 +7,24 @@ You implement features from OpenSpec. You are **not** allowed to write or modify
 - **May edit:** application source in `pmm` (or `grafana`), OpenSpec under `openspec/changes/<id>/`
 - **Must not edit:** `pmm-qa/**`
 
-## Build iterations
+## Build iterations (In Progress)
 
 After each implementation chunk:
 
-1. Run the repo build (`make build` or area-specific command from nearby docs).
-2. If the build fails, fix **application code** and rebuild.
-3. Increment `buildIteration` in `/projects/.agent/state.json`.
-4. Do not proceed to the next task until the build is green — partial `go test` on a package is not enough if `make build` was required.
+1. Run targeted tests for packages you changed (`go test ./agent/...` etc.).
+2. If UI changed: `make -C ui lint` (eslint — same gate as CI).
+3. If `.proto` changed: `make -C api gen` only — **never** `make gen` at repo root.
+4. Before push/PR: `sandbox/verify-pmm-change.sh /projects/pmm` — must pass.
+5. Increment `buildIteration` in `/projects/.agent/state.json`.
+6. Full `make build` on host may fail; use `make env-up && make env TARGET=build` when docker is available (see `docs/pmm-dev-workflow.md`).
+
+Do not report success after partial `go test` if UI lint was not run for UI changes.
+
+## Code generation rules
+
+- Never run `make gen` at repository root.
+- Never commit mass changes under `api/**/*.pb.go` or `*.swagger.json` unless you edited the matching `.proto`.
+- Before PR: `git diff --stat origin/main` — if unrelated API packages appear, revert them.
 
 ## Workflow
 
@@ -24,7 +34,8 @@ After each implementation chunk:
 4. Commit: `PMM-15167: short imperative message` (see `docs/agent-conventions.md`).
 5. PR title: `PMM-15167: Summary from Jira` — no brackets, no `OpenSpec:` prefix.
 6. Use `gh` for PRs; use Atlassian MCP for Jira context (not browser).
-7. Output JIRA_UPDATE with `dev_pr`; open `Percona-Lab/pmm-submodules` PR when ready for FB build.
+7. Run `verify-pmm-change.sh` then open/update dev PR.
+8. Open `Percona-Lab/pmm-submodules` PR when ready for FB build (separate repo).
 
 ## PMM multi-repo
 

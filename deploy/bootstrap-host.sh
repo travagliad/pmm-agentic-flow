@@ -38,8 +38,12 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   echo "[bootstrap-host] Cloning PMM workspace on control plane (/projects/pmm)…"
   export PMM_DIR=/projects/pmm PMM_QA_DIR=/projects/pmm-qa
   bash "$DEST/sandbox/setup-pmm-workspace.sh" || echo "[bootstrap-host] WARN: workspace clone failed — set GITHUB_TOKEN" >&2
+  if [ -d /projects/pmm/ui ]; then
+    echo "[bootstrap-host] yarn install (ui) for make lint / build"
+    make -C /projects/pmm/ui setup 2>/dev/null || (cd /projects/pmm/ui && yarn install)
+  fi
   if id agentcanvas >/dev/null 2>&1; then
-    chown -R agentcanvas:agentcanvas /projects/pmm /projects/pmm-qa 2>/dev/null || true
+    chown -R agentcanvas:agentcanvas /projects/pmm /projects/pmm-qa /projects/.agent 2>/dev/null || true
   fi
 fi
 
