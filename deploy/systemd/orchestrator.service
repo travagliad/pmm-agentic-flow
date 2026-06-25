@@ -1,7 +1,7 @@
 [Unit]
 Description=PMM Agentic Flow orchestrator
-After=network-online.target agent-canvas.service
-Wants=agent-canvas.service
+After=network-online.target nginx.service
+Wants=network-online.target
 
 [Service]
 Type=simple

@@ -1,7 +1,7 @@
 [Unit]
-Description=ngrok tunnel to local ingress
-After=network-online.target ingress.service
-Requires=ingress.service
+Description=ngrok tunnel to local nginx ingress
+After=network-online.target nginx.service
+Requires=nginx.service
 
 [Service]
 Type=simple

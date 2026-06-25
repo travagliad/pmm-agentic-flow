@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Mount Linode block volume (if attached) and wire persistence paths.
+# Mount Linode block volume (if attached) and wire orchestrator persistence.
 set -euo pipefail
 
-AGENT_USER="${AGENT_USER:-agentcanvas}"
 MOUNT="/mnt/agentic-data"
 MARKER="${MOUNT}/.volume_initialized"
 
@@ -21,17 +20,22 @@ if ! mountpoint -q "$MOUNT"; then
 fi
 grep -q agentic-data /etc/fstab || echo 'LABEL=agentic-data /mnt/agentic-data ext4 defaults 0 2' >> /etc/fstab
 
-mkdir -p "${MOUNT}/openhands" "${MOUNT}/orchestrator"
+mkdir -p "${MOUNT}/orchestrator"
 touch "$MARKER"
 
-OH="/home/${AGENT_USER}/.openhands"
-if [ ! -L "$OH" ]; then
-  rm -rf "$OH"
-  ln -s "${MOUNT}/openhands" "$OH"
+# Runner VMs only: Agent Canvas user + openhands paths
+AGENT_USER="${AGENT_USER:-agentcanvas}"
+if id "$AGENT_USER" >/dev/null 2>&1; then
+  mkdir -p "${MOUNT}/openhands"
+  OH="/home/${AGENT_USER}/.openhands"
+  if [ ! -L "$OH" ]; then
+    rm -rf "$OH"
+    ln -s "${MOUNT}/openhands" "$OH"
+  fi
+  mkdir -p "${MOUNT}/openhands/storage" "${MOUNT}/openhands/workspaces" \
+    "${MOUNT}/openhands/automation" "${MOUNT}/openhands/agent-canvas"
+  chown -R "${AGENT_USER}:${AGENT_USER}" "${MOUNT}/openhands"
 fi
-mkdir -p "${MOUNT}/openhands/storage" "${MOUNT}/openhands/workspaces" \
-  "${MOUNT}/openhands/automation" "${MOUNT}/openhands/agent-canvas"
-chown -R "${AGENT_USER}:${AGENT_USER}" "${MOUNT}/openhands"
 
 ORCH="/var/lib/pmm-agentic-flow/orchestrator"
 if [ ! -L "$ORCH" ]; then
