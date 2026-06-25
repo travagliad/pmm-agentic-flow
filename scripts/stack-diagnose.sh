@@ -34,5 +34,5 @@ echo "==> orchestrator (last 20 lines)"
 docker logs orchestrator --tail 20 2>&1 || true
 
 echo ""
-echo "==> caddy (last 10 lines)"
-docker logs caddy --tail 10 2>&1 || true
+echo "==> Caddy TLS (public IPv4)"
+docker exec caddy wget -qO- --timeout=5 --no-check-certificate "https://${PUBLIC_IP:-127.0.0.1}/" 2>&1 | head -c 120 || echo "HTTPS probe failed — run: bash scripts/generate-caddyfile.sh && docker compose restart caddy"

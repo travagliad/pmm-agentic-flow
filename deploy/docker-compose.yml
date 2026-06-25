@@ -79,9 +79,11 @@ services:
     restart: unless-stopped
     depends_on:
       agent-canvas:
-        condition: service_healthy
+        condition: service_started
       orchestrator:
         condition: service_started
+    environment:
+      PUBLIC_IP: ${PUBLIC_IP:-127.0.0.1}
     ports:
       - "80:80"
       - "443:443"

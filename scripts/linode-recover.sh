@@ -18,6 +18,7 @@ echo "==> URL: https://$PUBLIC_IP/"
 
 if [ -f "$ENV_FILE" ]; then
   sed -i "s|__PUBLIC_IP__|$PUBLIC_IP|g" "$ENV_FILE"
+  sed -i "s|^PUBLIC_IP=.*|PUBLIC_IP=$PUBLIC_IP|" "$ENV_FILE" 2>/dev/null || echo "PUBLIC_IP=$PUBLIC_IP" >> "$ENV_FILE"
   sed -i "s|^AGENT_CANVAS_PUBLIC_URL=.*|AGENT_CANVAS_PUBLIC_URL=https://$PUBLIC_IP|" "$ENV_FILE"
   grep -q '^AGENT_CANVAS_API_KEY=' "$ENV_FILE" || echo "AGENT_CANVAS_API_KEY=$(openssl rand -hex 24)" >> "$ENV_FILE"
   grep -q '^AGENT_CANVAS_SECRET_KEY=' "$ENV_FILE" || echo "AGENT_CANVAS_SECRET_KEY=$(openssl rand -hex 24)" >> "$ENV_FILE"
@@ -29,6 +30,7 @@ else
 fi
 
 bash "$DEST/scripts/stack-cleanup.sh" || true
+ENV_FILE="$DEST/.env" bash "$DEST/scripts/ensure-public-ip.sh"
 bash "$DEST/scripts/fix-agent-canvas-volumes.sh" "${AGENT_CANVAS_UID:-1000}" deploy
 
 echo "==> Starting stack (3 containers: caddy, agent-canvas, orchestrator)..."

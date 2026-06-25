@@ -1,6 +1,10 @@
-# HTTPS on bare IPv4 (self-signed). Accept browser cert warning on first visit.
+# PUBLIC_IP env var must be set (public IPv4). See scripts/public-ip.sh
 
-:443 {
+{
+  default_sni {$PUBLIC_IP}
+}
+
+https://{$PUBLIC_IP} {
   tls internal
   encode gzip
 
@@ -36,6 +40,6 @@
   }
 }
 
-:80 {
+http://{$PUBLIC_IP} {
   redir https://{host}{uri} permanent
 }
