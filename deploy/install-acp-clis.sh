@@ -15,7 +15,6 @@ fi
 
 cursor_ok=false
 copilot_ok=false
-copilot_attempted=false
 
 echo "[acp-clis] installing ACP backends"
 
@@ -26,7 +25,6 @@ else
 fi
 
 if [ -n "${GITHUB_COPILOT_TOKEN:-}" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
-  copilot_attempted=true
   if bash "$REPO_ROOT/deploy/install-copilot-cli.sh"; then
     copilot_ok=true
   else
@@ -44,15 +42,12 @@ else
   echo "[acp-clis] WARNING: no ACP CLI installed"
 fi
 
-if [ -n "${CURSOR_API_KEY:-}" ] && [ ! -x /usr/local/bin/agent ] && [ ! -x /usr/local/bin/copilot ]; then
-  echo "[acp-clis] ERROR: CURSOR_API_KEY is set but neither /usr/local/bin/agent nor /usr/local/bin/copilot is available." >&2
-  if [ "$cursor_ok" = false ]; then
-    echo "[acp-clis] ERROR: Cursor CLI install failed (CDN may return HTTP 403 from cloud IPs)." >&2
-  fi
-  if [ "$copilot_attempted" = false ]; then
-    echo "[acp-clis] ERROR: Set GITHUB_COPILOT_TOKEN or GITHUB_TOKEN for Copilot ACP fallback." >&2
-  elif [ "$copilot_ok" = false ]; then
-    echo "[acp-clis] ERROR: Copilot CLI install also failed." >&2
-  fi
+if [ -n "${CURSOR_API_KEY:-}" ] && [ ! -x /usr/local/bin/agent ]; then
+  echo "[acp-clis] ERROR: CURSOR_API_KEY is set but /usr/local/bin/agent is missing." >&2
+  exit 1
+fi
+
+if [ ! -x /usr/local/bin/agent ] && [ ! -x /usr/local/bin/copilot ]; then
+  echo "[acp-clis] ERROR: no ACP CLI installed." >&2
   exit 1
 fi

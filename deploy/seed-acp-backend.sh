@@ -20,6 +20,11 @@ if [ -z "$API_KEY" ]; then
   exit 0
 fi
 
+if [ -n "${CURSOR_API_KEY:-}" ] && [ ! -x /usr/local/bin/agent ]; then
+  echo "[seed-acp] ERROR: CURSOR_API_KEY is set but /usr/local/bin/agent is missing" >&2
+  exit 1
+fi
+
 if [ -x /usr/local/bin/agent ]; then
   CLI_BIN=/usr/local/bin/agent
   CLI_LABEL=Cursor

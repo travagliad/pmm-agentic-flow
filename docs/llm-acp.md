@@ -20,20 +20,17 @@ cursor_api_key       = "crsr_..."
 github_copilot_token = "gho_..."   # optional; defaults to github_token
 ```
 
-`deploy/install-acp-clis.sh` always attempts Cursor CLI install. Copilot is installed when `GITHUB_COPILOT_TOKEN` or `GITHUB_TOKEN` is set. Bootstrap **fails** if `CURSOR_API_KEY` is set but neither CLI is available.
+`deploy/install-acp-clis.sh` always attempts Cursor CLI install. When `cursor_api_key` is set in tfvars, bootstrap **requires** `/usr/local/bin/agent` — Copilot does not satisfy that requirement. Copilot is optional only when Cursor is not configured.
 
-### Install failures (Cursor CDN 403)
+### Install failures (HTTP 403)
 
-Cursor CLI is downloaded from `downloads.cursor.com`. Some cloud provider IPs (including Linode) may receive **HTTP 403** from that CDN. Previously, `install-agent-canvas.sh` swallowed this error (`|| true`), so Agent Canvas started without `/usr/local/bin/agent`.
+`deploy/install-cursor-cli.sh` reads `DOWNLOAD_URL` from `https://cursor.com/install` (full lab version, e.g. `2026.06.24-00-45-58-9f61de7`). An older bug truncated the version hash (`2026.06.24-00-45-58`), which produced HTTP 403 — not Linode IP blocking.
 
-**Mitigation:**
+If a specific lab version is unpublished on the CDN, Cursor may return 403 until they publish the artifact (see [Cursor forum](https://forum.cursor.com/t/cursor-cli-cannot-be-installed-installer-tried-to-download-asset-that-403s/155827)).
 
-1. Set `github_copilot_token` (or rely on `github_token`) in `terraform.tfvars` so bootstrap installs Copilot ACP as fallback.
-2. `deploy/seed-acp-backend.sh` (called from `bootstrap-host.sh` after Agent Canvas starts) auto-registers Copilot via `PATCH /api/settings` when `/usr/local/bin/agent` is missing.
-3. Settings persist in `/home/agentcanvas/.openhands/settings.json` (also reachable at `GET/PATCH /api/settings` with `X-Session-API-Key`).
-4. Re-run bootstrap after fixing secrets — failures are no longer ignored.
+`deploy/install-cursor-cli.sh` retries 3×, validates the tarball, and fails bootstrap loudly on error.
 
-`deploy/install-cursor-cli.sh` retries downloads 3×, validates the tarball before extract, and prints explicit messages on HTTP 403.
+**When `cursor_api_key` is set:** `deploy/seed-acp-backend.sh` registers `/usr/local/bin/agent acp` automatically after Canvas starts.
 
 ## Architecture: control plane vs runner chat
 
@@ -58,10 +55,8 @@ That consolidation is not implemented yet; the runner-per-chat model is intentio
 
 1. Control plane (manual): open `https://<ngrok-domain>/` or `http://<public_ip>:8000/`
 2. Runner (per ticket): link posted in Jira comment by orchestrator
-3. **Manage Backends** → Cursor: `/usr/local/bin/agent` + args `acp`
-4. Or Copilot: `/usr/local/bin/copilot` + args `acp`
-
-Bootstrap auto-seeds step 4 when Cursor CLI is unavailable (see `deploy/seed-acp-backend.sh`).
+3. **Manage Backends** → Cursor: `/usr/local/bin/agent` + args `acp` (auto-seeded on bootstrap when `cursor_api_key` is set)
+4. Or Copilot (only if Cursor not configured): `/usr/local/bin/copilot` + args `acp`
 
 ## Verify on the VM
 

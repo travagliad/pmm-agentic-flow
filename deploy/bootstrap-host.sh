@@ -23,9 +23,12 @@ fi
 bash "$DEST/deploy/install-control-plane.sh"
 
 bash "$DEST/deploy/install-acp-clis.sh" "$ENV_FILE"
+if [ -n "${CURSOR_API_KEY:-}" ] && ! [ -x /usr/local/bin/agent ]; then
+  echo "[bootstrap-host] ERROR: CURSOR_API_KEY is set but /usr/local/bin/agent is missing" >&2
+  exit 1
+fi
 if ! [ -x /usr/local/bin/agent ] && ! [ -x /usr/local/bin/copilot ]; then
-  echo "[bootstrap-host] ERROR: no ACP CLI found at /usr/local/bin/agent or /usr/local/bin/copilot" >&2
-  echo "[bootstrap-host] ERROR: Cursor CDN may block Linode IPs (HTTP 403). Set github_copilot_token in terraform.tfvars for Copilot fallback." >&2
+  echo "[bootstrap-host] ERROR: no ACP CLI at /usr/local/bin/agent or /usr/local/bin/copilot" >&2
   exit 1
 fi
 
@@ -68,13 +71,11 @@ echo "[bootstrap-host] ready: Canvas :8000 orchestrator :8080 nginx :8787"
 echo ""
 echo "[bootstrap-host] ACP CLI:"
 if [ -x /usr/local/bin/agent ]; then
-  echo "  Cursor:  /usr/local/bin/agent  ($(/usr/local/bin/agent --version 2>/dev/null || echo installed))"
-  echo "  Manage Backends → command: /usr/local/bin/agent  args: acp"
+  echo "  Cursor: /usr/local/bin/agent ($(/usr/local/bin/agent --version 2>/dev/null || echo installed))"
+  echo "  Auto-seeded → /usr/local/bin/agent acp"
 elif [ -x /usr/local/bin/copilot ]; then
   echo "  Copilot: /usr/local/bin/copilot ($(/usr/local/bin/copilot --version 2>/dev/null | head -1 || echo installed))"
-  echo "  (Cursor agent unavailable — CDN may block Linode IPs)"
-  echo "  Auto-seeded via seed-acp-backend.sh → command: /usr/local/bin/copilot  args: acp"
+  echo "  Auto-seeded → /usr/local/bin/copilot acp"
 else
-  echo "  NONE — set github_copilot_token in terraform.tfvars and re-run bootstrap"
-  echo "  Manual Manage Backends → command: /usr/local/bin/copilot  args: acp"
+  echo "  NONE — fix install-acp-clis.sh and re-run bootstrap"
 fi

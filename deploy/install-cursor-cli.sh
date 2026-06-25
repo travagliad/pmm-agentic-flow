@@ -30,9 +30,8 @@ curl_with_retries() {
       return 0
     fi
     if [ "$http_code" = "403" ]; then
-      echo "[cursor-cli] ERROR: Cursor CDN returned HTTP 403 for $url" >&2
-      echo "[cursor-cli] ERROR: downloads.cursor.com may block some cloud provider IPs (e.g. Linode)." >&2
-      echo "[cursor-cli] ERROR: Configure GITHUB_COPILOT_TOKEN for Copilot ACP fallback, or install Cursor CLI manually." >&2
+      echo "[cursor-cli] ERROR: HTTP 403 for $url" >&2
+      echo "[cursor-cli] ERROR: Lab version may be unpublished, or download URL was parsed incorrectly." >&2
     elif [ -n "$http_code" ] && [ "$http_code" != "000" ]; then
       echo "[cursor-cli] ERROR: HTTP $http_code downloading $url (attempt $attempt/$MAX_ATTEMPTS)" >&2
     else
@@ -47,29 +46,51 @@ curl_with_retries() {
   return 1
 }
 
+resolve_download_url() {
+  local script="$1"
+  local url_template version url
+
+  url_template="$(printf '%s\n' "$script" | grep -m1 '^DOWNLOAD_URL=' | sed 's/^DOWNLOAD_URL="//;s/"$//' || true)"
+  if [ -n "$url_template" ]; then
+    url="${url_template//\$\{OS\}/linux}"
+    url="${url//\$\{ARCH\}/x64}"
+    printf '%s\n' "$url"
+    return 0
+  fi
+
+  version="$(printf '%s\n' "$script" | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9a-f]+-[0-9a-f]+' | head -1)"
+  if [ -n "$version" ]; then
+    printf '%s\n' "https://downloads.cursor.com/lab/${version}/linux/x64/agent-cli-package.tar.gz"
+    return 0
+  fi
+
+  return 1
+}
+
 script="$(PATH="$CURL_IPV4_DIR:$PATH" curl -fsSL https://cursor.com/install)"
-version="$(echo "$script" | grep -oE 'lab/[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9a-f]+' | head -1 | cut -d/ -f2)"
-if [ -z "$version" ]; then
-  echo "[cursor-cli] ERROR: could not parse Cursor CLI version from install script" >&2
+url="$(resolve_download_url "$script" || true)"
+if [ -z "$url" ]; then
+  echo "[cursor-cli] ERROR: could not resolve Cursor CLI download URL from install script" >&2
   exit 1
 fi
 
-url="https://downloads.cursor.com/lab/${version}/linux/x64/agent-cli-package.tar.gz"
-dest="/opt/cursor-agent/${version}"
-tarball="$(mktemp /tmp/cursor-agent-cli.XXXXXX.tar.gz)"
+version_dir="$(printf '%s\n' "$script" | grep -oE '[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9a-f]+-[0-9a-f]+' | head -1)"
+echo "[cursor-cli] download: $url"
 
+tarball="$(mktemp /tmp/cursor-agent-cli.XXXXXX.tar.gz)"
 if ! curl_with_retries "$url" "$tarball"; then
   rm -f "$tarball"
   exit 1
 fi
 
 if ! gzip -t "$tarball" 2>/dev/null; then
-  echo "[cursor-cli] ERROR: downloaded file is not a valid gzip tarball (got HTML or truncated response?)" >&2
+  echo "[cursor-cli] ERROR: downloaded file is not a valid gzip tarball" >&2
   head -c 200 "$tarball" | tr -d '\0' | sed 's/^/[cursor-cli] response preview: /' >&2 || true
   rm -f "$tarball"
   exit 1
 fi
 
+dest="/opt/cursor-agent/${version_dir:-unknown}"
 rm -rf "$dest"
 mkdir -p "$dest"
 if ! tar --strip-components=1 -xzf "$tarball" -C "$dest"; then
@@ -86,4 +107,4 @@ fi
 
 install -m 0755 "$dest/cursor-agent" "$AGENT_BIN"
 ln -sf "$AGENT_BIN" /usr/local/bin/cursor-agent
-echo "[cursor-cli] installed: $($AGENT_BIN --version 2>/dev/null || echo "$version")"
+echo "[cursor-cli] installed: $($AGENT_BIN --version 2>/dev/null || echo "$version_dir")"
