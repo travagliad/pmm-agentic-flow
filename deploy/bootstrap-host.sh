@@ -53,6 +53,7 @@ systemctl enable nginx agent-canvas orchestrator
 
 systemctl restart agent-canvas
 /opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8000/ 300
+bash "$DEST/deploy/seed-acp-backend.sh" "$ENV_FILE"
 
 systemctl restart orchestrator
 /opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8080/orchestrator/health 60
@@ -64,3 +65,16 @@ systemctl restart nginx
 [ -n "${NGROK_DOMAIN:-}" ] && systemctl restart ngrok
 
 echo "[bootstrap-host] ready: Canvas :8000 orchestrator :8080 nginx :8787"
+echo ""
+echo "[bootstrap-host] ACP CLI:"
+if [ -x /usr/local/bin/agent ]; then
+  echo "  Cursor:  /usr/local/bin/agent  ($(/usr/local/bin/agent --version 2>/dev/null || echo installed))"
+  echo "  Manage Backends → command: /usr/local/bin/agent  args: acp"
+elif [ -x /usr/local/bin/copilot ]; then
+  echo "  Copilot: /usr/local/bin/copilot ($(/usr/local/bin/copilot --version 2>/dev/null | head -1 || echo installed))"
+  echo "  (Cursor agent unavailable — CDN may block Linode IPs)"
+  echo "  Auto-seeded via seed-acp-backend.sh → command: /usr/local/bin/copilot  args: acp"
+else
+  echo "  NONE — set github_copilot_token in terraform.tfvars and re-run bootstrap"
+  echo "  Manual Manage Backends → command: /usr/local/bin/copilot  args: acp"
+fi

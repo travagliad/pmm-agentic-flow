@@ -25,5 +25,10 @@ install -m 0644 "$DEST/deploy/systemd/agent-canvas.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable agent-canvas
 systemctl restart agent-canvas
+sleep 5
+bash "$DEST/deploy/seed-acp-backend.sh" "$ENV_FILE"
 
 echo "[bootstrap-runner] ready http://${PUBLIC_IP}:8000/ ticket=${TICKET_KEY:-unknown}"
+if [ -x /usr/local/bin/copilot ] && ! [ -x /usr/local/bin/agent ]; then
+  echo "[bootstrap-runner] ACP: Copilot auto-seeded (/usr/local/bin/copilot acp)"
+fi
