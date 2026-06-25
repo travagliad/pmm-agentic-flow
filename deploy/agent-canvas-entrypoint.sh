@@ -7,6 +7,7 @@ LOCAL=/home/openhands/.local
 ENTRYPOINT="/opt/agent-canvas/entrypoint.sh"
 AGENT_BIN="$LOCAL/bin/agent"
 COPILOT_BIN="$LOCAL/bin/copilot"
+CURL_IPV4_DIR=/tmp/curl-ipv4
 
 canvas_ids() {
   if id openhands >/dev/null 2>&1; then
@@ -17,11 +18,21 @@ canvas_ids() {
 }
 
 run_as_openhands() {
+  local cmd="$1"
   if id openhands >/dev/null 2>&1; then
-    su -s /bin/bash openhands -c "$*"
+    su -s /bin/bash openhands -c "export HOME=/home/openhands PATH=$CURL_IPV4_DIR:/home/openhands/.local/bin:\$PATH; ${cmd}"
   else
-    bash -c "$*"
+    HOME=/home/openhands PATH="$CURL_IPV4_DIR:/home/openhands/.local/bin:$PATH" bash -c "${cmd}"
   fi
+}
+
+ensure_curl_ipv4_wrapper() {
+  mkdir -p "$CURL_IPV4_DIR"
+  cat >"$CURL_IPV4_DIR/curl" <<'EOF'
+#!/bin/sh
+exec /usr/bin/curl -4 "$@"
+EOF
+  chmod +x "$CURL_IPV4_DIR/curl"
 }
 
 fix_local_ownership() {
@@ -35,14 +46,22 @@ install_cursor_cli() {
     echo "[entrypoint-wrapper] cursor CLI: $AGENT_BIN"
     return 0
   fi
-  echo "[entrypoint-wrapper] installing cursor CLI..."
-  run_as_openhands 'curl -fsSL https://cursor.com/install | bash' || true
-  fix_local_ownership
-  if [ -x "$AGENT_BIN" ]; then
-    echo "[entrypoint-wrapper] cursor CLI installed: $($AGENT_BIN --version 2>/dev/null || echo ok)"
-  else
-    echo "[entrypoint-wrapper] WARNING: cursor CLI install failed" >&2
-  fi
+  echo "[entrypoint-wrapper] installing cursor CLI (IPv4-only curl)..."
+  local attempt
+  for attempt in 1 2 3; do
+    if run_as_openhands 'curl -fsSL https://cursor.com/install | bash'; then
+      fix_local_ownership
+      if [ -x "$AGENT_BIN" ]; then
+        echo "[entrypoint-wrapper] cursor CLI installed: $($AGENT_BIN --version 2>/dev/null || echo ok)"
+        return 0
+      fi
+    fi
+    echo "[entrypoint-wrapper] cursor CLI install attempt ${attempt}/3 failed" >&2
+  done
+  echo "[entrypoint-wrapper] ERROR: cursor CLI missing at $AGENT_BIN" >&2
+  ls -la "$LOCAL/bin" 2>/dev/null || true
+  ls -la "$LOCAL/share/cursor-agent/versions" 2>/dev/null || true
+  exit 1
 }
 
 install_copilot_cli() {
@@ -50,18 +69,25 @@ install_copilot_cli() {
     echo "[entrypoint-wrapper] copilot CLI: $COPILOT_BIN"
     return 0
   fi
-  echo "[entrypoint-wrapper] installing copilot CLI..."
-  run_as_openhands 'curl -fsSL https://gh.io/copilot-install | bash' || true
-  fix_local_ownership
-  if [ -x "$COPILOT_BIN" ]; then
-    echo "[entrypoint-wrapper] copilot CLI installed: $($COPILOT_BIN --version 2>/dev/null || echo ok)"
-  else
-    echo "[entrypoint-wrapper] WARNING: copilot CLI install failed" >&2
-  fi
+  echo "[entrypoint-wrapper] installing copilot CLI (IPv4-only curl)..."
+  local attempt
+  for attempt in 1 2 3; do
+    if run_as_openhands 'curl -fsSL https://gh.io/copilot-install | bash'; then
+      fix_local_ownership
+      if [ -x "$COPILOT_BIN" ]; then
+        echo "[entrypoint-wrapper] copilot CLI installed: $($COPILOT_BIN --version 2>/dev/null || echo ok)"
+        return 0
+      fi
+    fi
+    echo "[entrypoint-wrapper] copilot CLI install attempt ${attempt}/3 failed" >&2
+  done
+  echo "[entrypoint-wrapper] WARNING: copilot CLI install failed (optional)" >&2
 }
 
 read -r UID_NUM GID_NUM <<< "$(canvas_ids)"
 echo "[entrypoint-wrapper] volume owner uid:gid = ${UID_NUM}:${GID_NUM}"
+
+ensure_curl_ipv4_wrapper
 
 mkdir -p \
   "$OH/storage" \
