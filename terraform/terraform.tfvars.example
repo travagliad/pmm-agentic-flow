@@ -1,6 +1,7 @@
 linode_token            = "YOUR_LINODE_TOKEN"
 root_password           = "GENERATE_A_STRONG_PASSWORD"
-domain                  = "139-162-150-187.sslip.io"
+# domain — leave empty: auto → pmmagents.<your-ip-dashes>.sslip.io
+# domain_prefix         = "pmmagents"   # optional; only used when domain is empty
 acme_email              = "you@example.com"
 bootstrap_repo_url      = "https://github.com/travagliad/pmm-agentic-flow.git"
 github_token            = "ghp_..."

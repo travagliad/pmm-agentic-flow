@@ -27,7 +27,14 @@ variable "root_password" {
 
 variable "domain" {
   type        = string
-  description = "Public hostname for Caddy TLS (e.g. loop.example.com)."
+  default     = ""
+  description = "Optional override for Caddy TLS hostname. Leave empty to auto-use {domain_prefix}.{ip-dashes}.sslip.io (no DNS setup)."
+}
+
+variable "domain_prefix" {
+  type        = string
+  default     = "pmmagents"
+  description = "Stable sslip.io label when domain is auto-computed (e.g. pmmagents.139-162-150-187.sslip.io)."
 }
 
 variable "acme_email" {

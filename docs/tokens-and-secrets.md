@@ -26,63 +26,24 @@ Run three times for three different keys.
 
 ---
 
-## No custom domain
+## No custom domain (default)
 
-Use **sslip.io** — free DNS that points a hostname to your Linode IP. No registration.
-
-Format: if Linode IP is `203.0.113.50`, hostname is:
+Leave **`domain` empty** in `terraform.tfvars`. Terraform auto-computes:
 
 ```text
-203-0-113-50.sslip.io
+pmmagents.<linode-ip-with-dashes>.sslip.io
 ```
 
-(dots → dashes, then `.sslip.io`)
+Example: IP `139.162.150.187` → **`https://pmmagents.139-162-150-187.sslip.io/`**
 
-### Two-step Terraform (no domain purchase)
+- No DNS registration, no two-step apply, no manual IP→hostname math
+- Everyone uses the same **prefix** (`pmmagents`); only the IP segment changes per VM
+- Override prefix: `domain_prefix = "pmmagents"` (default)
+- Override full hostname: `domain = "loop.example.com"` (requires your own A record)
 
-**Step 1 — create the Linode** (temporary domain placeholder):
+On the Linode, recover script and `scripts/loop-domain.sh` use the same formula.
 
-In `terraform.tfvars` use any placeholder for first apply:
-
-```hcl
-domain = "bootstrap.sslip.io"
-```
-
-Run:
-
-```powershell
-cd terraform
-terraform init
-terraform apply
-```
-
-Note the IP:
-
-```powershell
-terraform output public_ip
-```
-
-**Step 2 — set real sslip.io hostname and re-apply:**
-
-If IP is `203.0.113.50`:
-
-```hcl
-domain = "203-0-113-50.sslip.io"
-```
-
-```powershell
-terraform apply
-```
-
-Wait ~5 minutes for cloud-init / Caddy to pick up TLS.
-
-Open in browser:
-
-```text
-https://203-0-113-50.sslip.io/
-```
-
----
+**Note:** bare `pmmagents.sslip.io` (without the IP segment) does **not** resolve via sslip.io magic DNS — sslip.io needs the IP embedded in the hostname unless you own a real domain and add an A record.
 
 ## Example `terraform.tfvars` (fill yours — do not commit this file)
 
@@ -91,7 +52,7 @@ Copy from `terraform.tfvars.example`. **Never commit `terraform.tfvars`** (secre
 ```hcl
 linode_token           = "PASTE from cloud.linode.com/profile/tokens"
 root_password          = "Pick a strong password for ssh root@linode"
-domain                 = "203-0-113-50.sslip.io"   # after step 2 above
+domain                 = ""   # empty = auto pmmagents.<ip-dashes>.sslip.io
 acme_email             = "your.email@example.com"    # any real email (Let's Encrypt)
 bootstrap_repo_url     = "https://github.com/travagliad/pmm-agentic-flow.git"
 

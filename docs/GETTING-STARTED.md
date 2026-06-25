@@ -151,7 +151,7 @@ Or open OpenHands in the browser and type:
 
 | Problem | Fix |
 |---------|-----|
-| `bootstrap.sslip.io` does not open | Wrong hostname — use `https://139-162-150-187.sslip.io` (your IP with dashes) |
+| `bootstrap.sslip.io` / wrong hostname | Use `terraform output loop_domain` or `bash scripts/loop-domain.sh` |
 | Connection refused on 80/443 | Stack not running — SSH in and run recovery (below) |
 | cloud-init failed | `ssh root@IP` → `tail -100 /var/log/pmm-agentic-flow-bootstrap.log` |
 | **502 Bad Gateway** on `/` | Agent Canvas not up — `docker logs loop-agent-canvas` |
@@ -172,10 +172,10 @@ cp /etc/pmm-agentic-flow/env /opt/pmm-agentic-flow/src/.env
 cd /opt/pmm-agentic-flow/src/deploy && docker compose --env-file ../.env up -d --build
 ```
 
-Correct URL for IP `139.162.150.187`:
+Correct URL pattern (IP `139.162.150.187`):
 
 ```text
-https://139-162-150-187.sslip.io/
+https://pmmagents.139-162-150-187.sslip.io/
 ```
 
 See also: [agent-canvas.md](./agent-canvas.md), [deploy-linode.md](./deploy-linode.md)

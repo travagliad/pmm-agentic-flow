@@ -3,14 +3,20 @@
 #   curl -fsSL https://raw.githubusercontent.com/travagliad/pmm-agentic-flow/master/scripts/linode-recover.sh | bash
 set -euo pipefail
 
-PUBLIC_IP="$(curl -fsSL https://ifconfig.me/ip 2>/dev/null || hostname -I | awk '{print $1}')"
-SSLIP_DOMAIN="${PUBLIC_IP//./-}.sslip.io"
-
-echo "==> Detected IP: $PUBLIC_IP"
-echo "==> sslip.io hostname: $SSLIP_DOMAIN"
-
 DEST=/opt/pmm-agentic-flow/src
 ENV_FILE=/etc/pmm-agentic-flow/env
+DOMAIN_PREFIX="${DOMAIN_PREFIX:-pmmagents}"
+
+PUBLIC_IP="$(curl -fsSL https://ifconfig.me/ip 2>/dev/null || hostname -I | awk '{print $1}')"
+LOOP_DOMAIN="${DOMAIN_PREFIX}.${PUBLIC_IP//./-}.sslip.io"
+
+echo "==> IP: $PUBLIC_IP"
+echo "==> URL: https://$LOOP_DOMAIN/"
+
+if [ -f /var/log/pmm-agentic-flow-bootstrap.log ]; then
+  echo "==> Last 40 lines of bootstrap log:"
+  tail -40 /var/log/pmm-agentic-flow-bootstrap.log
+fi
 
 if [ ! -d "$DEST/.git" ]; then
   echo "==> Repo missing — cloning..."
@@ -19,9 +25,9 @@ if [ ! -d "$DEST/.git" ]; then
 fi
 
 if [ -f "$ENV_FILE" ]; then
-  sed -i "s|^LOOP_DOMAIN=.*|LOOP_DOMAIN=$SSLIP_DOMAIN|" "$ENV_FILE"
-  sed -i "s|^AGENT_CANVAS_PUBLIC_URL=.*|AGENT_CANVAS_PUBLIC_URL=https://$SSLIP_DOMAIN|" "$ENV_FILE"
-  sed -i "s|^OPENHANDS_PUBLIC_URL=.*|OPENHANDS_PUBLIC_URL=https://$SSLIP_DOMAIN|" "$ENV_FILE"
+  sed -i "s|^LOOP_DOMAIN=.*|LOOP_DOMAIN=$LOOP_DOMAIN|" "$ENV_FILE"
+  sed -i "s|^AGENT_CANVAS_PUBLIC_URL=.*|AGENT_CANVAS_PUBLIC_URL=https://$LOOP_DOMAIN|" "$ENV_FILE"
+  sed -i "s|^OPENHANDS_PUBLIC_URL=.*|OPENHANDS_PUBLIC_URL=https://$LOOP_DOMAIN|" "$ENV_FILE"
   grep -q '^AGENT_CANVAS_API_KEY=' "$ENV_FILE" || echo "AGENT_CANVAS_API_KEY=$(openssl rand -hex 24)" >> "$ENV_FILE"
   grep -q '^AGENT_CANVAS_SECRET_KEY=' "$ENV_FILE" || echo "AGENT_CANVAS_SECRET_KEY=$(openssl rand -hex 24)" >> "$ENV_FILE"
   grep -q '^AGENT_CANVAS_VERSION=' "$ENV_FILE" || echo 'AGENT_CANVAS_VERSION=latest' >> "$ENV_FILE"
@@ -39,7 +45,6 @@ docker compose --env-file "$DEST/.env" pull
 docker compose --env-file "$DEST/.env" up -d --build
 
 echo ""
-echo "When healthy, open: https://$SSLIP_DOMAIN/"
-echo "API key (LOCAL_BACKEND_API_KEY): grep AGENT_CANVAS_API_KEY $DEST/.env"
-echo "Orchestrator health: curl -s http://127.0.0.1:8080/health"
-echo "Jira webhook: https://$SSLIP_DOMAIN/hooks/jira"
+echo "Open: https://$LOOP_DOMAIN/"
+echo "API key: grep AGENT_CANVAS_API_KEY $DEST/.env"
+echo "Jira webhook: https://$LOOP_DOMAIN/hooks/jira"

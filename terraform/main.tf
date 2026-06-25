@@ -12,6 +12,10 @@ provider "linode" {
   token = var.linode_token
 }
 
+locals {
+  loop_domain = var.domain != "" ? var.domain : "${var.domain_prefix}.${replace(linode_instance.loop_host.ip_address, ".", "-")}.sslip.io"
+}
+
 resource "linode_instance" "loop_host" {
   label            = var.label
   region           = var.region
@@ -23,7 +27,7 @@ resource "linode_instance" "loop_host" {
 
   metadata {
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml.tpl", {
-      domain                 = var.domain
+      domain                 = local.loop_domain
       acme_email             = var.acme_email
       bootstrap_repo_url     = var.bootstrap_repo_url
       github_token           = var.github_token
@@ -87,20 +91,30 @@ output "ssh_command" {
   value = "ssh root@${linode_instance.loop_host.ip_address}"
 }
 
+output "loop_domain" {
+  value       = local.loop_domain
+  description = "Public URL hostname (auto sslip.io or custom override)."
+}
+
+output "agent_canvas_url" {
+  value = "https://${local.loop_domain}/"
+}
+
 output "dns_hint" {
-  value = "Create an A record: ${var.domain} → ${linode_instance.loop_host.ip_address}"
+  value = var.domain != "" ? "Custom domain — ensure A record: ${local.loop_domain} → ${linode_instance.loop_host.ip_address}" : "No DNS step — sslip.io resolves ${local.loop_domain} automatically."
 }
 
 output "openhands_url" {
-  value = "https://${var.domain}/"
+  value       = "https://${local.loop_domain}/"
+  description = "Deprecated alias for agent_canvas_url."
 }
 
 output "next_steps" {
   value = <<-EOT
-    1. Point DNS A record ${var.domain} → ${linode_instance.loop_host.ip_address}
-    2. Wait ~5 min for cloud-init (Docker + git clone + compose up)
-    3. SSH: ssh root@${linode_instance.loop_host.ip_address}
-    4. Check: journalctl -u cloud-final -f  OR  docker ps
-    5. Open: https://${var.domain}/
+    1. Wait ~5 min for cloud-init (Docker + git clone + compose up)
+    2. SSH: ssh root@${linode_instance.loop_host.ip_address}
+    3. Check: docker ps
+    4. Open: https://${local.loop_domain}/
+    5. API key: grep AGENT_CANVAS_API_KEY /etc/pmm-agentic-flow/env
   EOT
 }
