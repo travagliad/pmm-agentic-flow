@@ -1,22 +1,37 @@
 #!/usr/bin/env bash
 # Fetch Jira issue via REST API (no Rovo MCP — org does not allow it).
 # Usage: jira-issue.sh PMM-15167 [field...]
-# Credentials: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN from env or /etc/pmm-agentic-flow/env
+# Credentials: JIRA_* env vars, or /etc/pmm-agentic-flow/jira.env (agentcanvas-readable)
 set -euo pipefail
 
-ENV_FILE="${JIRA_ENV_FILE:-/etc/pmm-agentic-flow/env}"
-if [ -f "$ENV_FILE" ]; then
-  set -a
-  # shellcheck source=/dev/null
-  source "$ENV_FILE"
-  set +a
+load_env() {
+  local file="$1"
+  if [ -r "$file" ]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$file"
+    set +a
+    return 0
+  fi
+  return 1
+}
+
+if [ -z "${JIRA_BASE_URL:-}" ] || [ -z "${JIRA_EMAIL:-}" ] || [ -z "${JIRA_API_TOKEN:-}" ]; then
+  for candidate in \
+    "${JIRA_ENV_FILE:-}" \
+    /etc/pmm-agentic-flow/jira.env \
+    /etc/pmm-agentic-flow/env; do
+    [ -n "$candidate" ] || continue
+    load_env "$candidate" && break
+  done
 fi
 
-KEY="${1:?Usage: jira-issue.sh PMM-12345}"
+KEY="${1:?Usage: jira-issue.sh PMM-12345 [summary,description,...]}"
 shift || true
 
 if [ -z "${JIRA_BASE_URL:-}" ] || [ -z "${JIRA_EMAIL:-}" ] || [ -z "${JIRA_API_TOKEN:-}" ]; then
-  echo "Set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN (terraform tfvars -> /etc/pmm-agentic-flow/env)" >&2
+  echo "Jira credentials missing. Run as root on CP: bash deploy/install-jira-agent-env.sh" >&2
+  echo "Or set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN in the environment." >&2
   exit 1
 fi
 

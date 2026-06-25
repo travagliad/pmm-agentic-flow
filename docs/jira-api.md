@@ -4,34 +4,31 @@ Percona does **not** authorize Atlassian Rovo MCP API tokens. Do not configure o
 
 ## Credentials on the control plane
 
-From `terraform/terraform.tfvars` → `/etc/pmm-agentic-flow/env`:
+| File | Who can read |
+|------|----------------|
+| `/etc/pmm-agentic-flow/env` | root only (orchestrator, systemd) |
+| `/etc/pmm-agentic-flow/jira.env` | `agentcanvas` — JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN |
 
-| Variable | Use |
-|----------|-----|
-| `JIRA_BASE_URL` | e.g. `https://perconadev.atlassian.net` |
-| `JIRA_EMAIL` | Atlassian account email |
-| `JIRA_API_TOKEN` | Classic Jira API token (id.atlassian.com) |
+Created by `deploy/install-jira-agent-env.sh` during bootstrap. Re-run after tfvars change:
 
-The orchestrator already uses these for comments. The **agent** should use the same via `curl` or the helper script.
+```bash
+sudo bash /opt/pmm-agentic-flow/src/deploy/install-jira-agent-env.sh
+```
+
+Terraform tfvars → full env on VM; Jira subset copied to `jira.env` for the agent shell.
 
 ## Fetch an issue (agent)
 
 ```bash
-# Full issue JSON
-bash /opt/pmm-agentic-flow/src/scripts/jira-issue.sh PMM-15167
-
-# Selected fields only
+# As agentcanvas or any user in group agentcanvas — no sudo
+bash /opt/pmm-agentic-flow/jira-issue.sh PMM-15167
 bash /opt/pmm-agentic-flow/src/scripts/jira-issue.sh PMM-15167 summary,description,status
 ```
 
-## Manual curl
+## Manual curl (root only — env is mode 600)
 
 ```bash
-source /etc/pmm-agentic-flow/env
-AUTH=$(printf '%s:%s' "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64 -w0)
-
-curl -sS -H "Authorization: Basic $AUTH" -H "Accept: application/json" \
-  "$JIRA_BASE_URL/rest/api/3/issue/PMM-15167"
+sudo bash -c 'source /etc/pmm-agentic-flow/env && AUTH=$(printf "%s:%s" "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64 -w0) && curl -sS -H "Authorization: Basic $AUTH" -H "Accept: application/json" "$JIRA_BASE_URL/rest/api/3/issue/PMM-15167"'
 ```
 
 ## What not to do

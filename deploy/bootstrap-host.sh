@@ -22,6 +22,8 @@ fi
 
 bash "$DEST/deploy/install-control-plane.sh"
 
+bash "$DEST/deploy/install-jira-agent-env.sh" "$ENV_FILE"
+
 bash "$DEST/deploy/install-acp-clis.sh" "$ENV_FILE"
 if [ -n "${CURSOR_API_KEY:-}" ] && ! { [ -x /usr/local/bin/agent ] && /usr/local/bin/agent --version >/dev/null 2>&1; }; then
   echo "[bootstrap-host] ERROR: CURSOR_API_KEY is set but /usr/local/bin/agent is not working" >&2
