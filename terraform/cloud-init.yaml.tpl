@@ -55,8 +55,26 @@ write_files:
       for legacy in caddy loop-caddy loop-litellm loop-openhands loop-orchestrator; do
         docker rm -f "$legacy" 2>/dev/null || true
       done
+      mkdir -p /etc/docker
+      if ! grep -q '"ipv6"' /etc/docker/daemon.json 2>/dev/null; then
+        printf '%s\n' '{ "ipv6": false }' > /etc/docker/daemon.json
+        systemctl restart docker
+        sleep 3
+      fi
       cd "$DEST/deploy"
-      docker compose --env-file "$ENV_FILE" pull
+      pull_ok=0
+      for attempt in 1 2 3 4 5; do
+        if docker compose --env-file "$ENV_FILE" pull; then
+          pull_ok=1
+          break
+        fi
+        echo "docker compose pull failed (attempt $attempt/5), retry in 30s..."
+        sleep 30
+      done
+      if [ "$pull_ok" -ne 1 ]; then
+        echo "ERROR: docker compose pull failed after 5 attempts" >&2
+        exit 1
+      fi
       docker compose --env-file "$ENV_FILE" run --rm agent-canvas-init
       docker compose --env-file "$ENV_FILE" up -d --build --remove-orphans
       echo "Stack deployed. Open http://$PUBLIC_IP:8000/"
