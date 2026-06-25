@@ -44,6 +44,12 @@ deadline=$((SECONDS + WAIT_SEC))
 while [ "$SECONDS" -lt "$deadline" ]; do
   if probe_18000; then
     echo "OK — agent-server healthy on :18000"
+    if docker exec agent-canvas test -x /home/openhands/.local/bin/agent 2>/dev/null; then
+      echo "OK — cursor CLI at /home/openhands/.local/bin/agent"
+    else
+      echo "WARN — cursor CLI missing; run: bash scripts/setup-cursor-acp.sh"
+      echo "      ACP command must be /home/openhands/.local/bin/agent (not 'agent')"
+    fi
     curl -fsS --connect-timeout 5 http://127.0.0.1:8000/health >/dev/null && echo "OK — proxy :8000/health"
     IP="$(bash "$ROOT/scripts/public-ip.sh" 2>/dev/null || echo 127.0.0.1)"
     echo ""

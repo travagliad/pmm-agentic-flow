@@ -44,9 +44,11 @@ services:
       AUTOMATION_BASE_URL: ${AGENT_CANVAS_PUBLIC_URL:-http://127.0.0.1:8000}
       AUTOMATION_DB_URL: sqlite+aiosqlite:////home/openhands/.openhands/automation/automations.db
       CURSOR_API_KEY: ${CURSOR_API_KEY:-}
+      INSTALL_CURSOR_CLI: ${INSTALL_CURSOR_CLI:-1}
       PATH: /home/openhands/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - agent-canvas-state:/home/openhands/.openhands
+      - agent-canvas-local:/home/openhands/.local
       - agent-canvas-projects:/projects
       - ../sandbox:/projects/pmm-agentic-flow/sandbox:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -94,5 +96,6 @@ services:
 
 volumes:
   agent-canvas-state:
+  agent-canvas-local:
   agent-canvas-projects:
   orchestrator-data:

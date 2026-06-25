@@ -52,8 +52,8 @@ Note: login tokens live in the container filesystem — lost on `recreate`. Pref
 ### Canvas UI
 
 1. **Manage Backends** → add **Cursor** (ACP)
-   - Command: `/home/openhands/.local/bin/agent`
-   - Args: `acp`
+   - **Command:** `/home/openhands/.local/bin/agent` (not bare `agent`)
+   - **Args:** `acp`
 2. **Settings** → default provider = that Cursor backend
 3. New conversation → test message
 
