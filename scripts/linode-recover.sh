@@ -14,12 +14,11 @@ fi
 PUBLIC_IP="$(bash "$DEST/scripts/public-ip.sh" 2>/dev/null || curl -4 -fsSL https://ifconfig.me/ip)"
 
 echo "==> IPv4: $PUBLIC_IP"
-echo "==> URL: https://$PUBLIC_IP/"
+echo "==> Agent Canvas: http://$PUBLIC_IP:8000/"
 
 if [ -f "$ENV_FILE" ]; then
   sed -i "s|__PUBLIC_IP__|$PUBLIC_IP|g" "$ENV_FILE"
-  sed -i "s|^PUBLIC_IP=.*|PUBLIC_IP=$PUBLIC_IP|" "$ENV_FILE" 2>/dev/null || echo "PUBLIC_IP=$PUBLIC_IP" >> "$ENV_FILE"
-  sed -i "s|^AGENT_CANVAS_PUBLIC_URL=.*|AGENT_CANVAS_PUBLIC_URL=https://$PUBLIC_IP|" "$ENV_FILE"
+  sed -i "s|^AGENT_CANVAS_PUBLIC_URL=.*|AGENT_CANVAS_PUBLIC_URL=http://$PUBLIC_IP:8000|" "$ENV_FILE"
   grep -q '^AGENT_CANVAS_API_KEY=' "$ENV_FILE" || echo "AGENT_CANVAS_API_KEY=$(openssl rand -hex 24)" >> "$ENV_FILE"
   grep -q '^AGENT_CANVAS_SECRET_KEY=' "$ENV_FILE" || echo "AGENT_CANVAS_SECRET_KEY=$(openssl rand -hex 24)" >> "$ENV_FILE"
   grep -q '^AGENT_CANVAS_VERSION=' "$ENV_FILE" || echo 'AGENT_CANVAS_VERSION=latest' >> "$ENV_FILE"
@@ -30,17 +29,16 @@ else
 fi
 
 bash "$DEST/scripts/stack-cleanup.sh" || true
-ENV_FILE="$DEST/.env" bash "$DEST/scripts/ensure-public-ip.sh"
 bash "$DEST/scripts/fix-agent-canvas-volumes.sh" "${AGENT_CANVAS_UID:-1000}" deploy
 
-echo "==> Starting stack (3 containers: caddy, agent-canvas, orchestrator)..."
+echo "==> Starting stack (agent-canvas + orchestrator)..."
 cd "$DEST/deploy"
 docker compose --env-file "$DEST/.env" pull
-docker compose --env-file "$DEST/.env" up -d --build
+docker compose --env-file "$DEST/.env" up -d --build --remove-orphans
 
 echo ""
 docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
 echo ""
-echo "Open: https://$PUBLIC_IP/"
+echo "Open: http://$PUBLIC_IP:8000/"
 echo "API key: grep AGENT_CANVAS_API_KEY $DEST/.env"
-echo "Jira webhook: https://$PUBLIC_IP/hooks/jira"
+echo "Jira webhook: http://$PUBLIC_IP:8080/hooks/jira"

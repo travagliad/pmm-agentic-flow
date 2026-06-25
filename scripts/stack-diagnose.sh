@@ -6,33 +6,27 @@ DEST="${DEST:-/opt/pmm-agentic-flow/src}"
 ENV_FILE="${ENV_FILE:-$DEST/.env}"
 COMPOSE="docker compose --env-file $ENV_FILE -f $DEST/deploy/docker-compose.yml"
 
-echo "==> Expected: caddy, agent-canvas, orchestrator (3 running)"
+echo "==> Expected: agent-canvas, orchestrator (2 running)"
 $COMPOSE ps -a
 
+IP="$(bash "$DEST/scripts/public-ip.sh" 2>/dev/null || echo '?')"
 echo ""
-echo "==> Public IPv4"
-bash "$DEST/scripts/public-ip.sh" 2>/dev/null || curl -4 -fsSL https://ifconfig.me/ip
+echo "==> URLs"
+echo "    Canvas: http://$IP:8000/"
+echo "    Webhook: http://$IP:8080/hooks/jira"
 
 echo ""
-echo "==> Env"
-grep -E '^AGENT_CANVAS_PUBLIC_URL=' "$ENV_FILE" 2>/dev/null || true
+echo "==> curl agent-canvas"
+curl -fsS --connect-timeout 5 "http://127.0.0.1:8000/" | head -c 120 || echo "FAIL"
 
 echo ""
-echo "==> Caddy -> orchestrator /orchestrator/health"
-docker exec caddy wget -qO- --timeout=5 http://orchestrator:8080/orchestrator/health 2>&1 || echo "FAIL"
+echo "==> curl orchestrator health"
+curl -fsS --connect-timeout 5 "http://127.0.0.1:8080/orchestrator/health" || echo "FAIL"
 
 echo ""
-echo "==> Caddy -> agent-canvas:8000"
-docker exec caddy wget -qO- --timeout=5 http://agent-canvas:8000/ 2>&1 | head -c 200 || echo "FAIL"
+echo "==> agent-canvas (last 20 lines)"
+docker logs agent-canvas --tail 20 2>&1 || true
 
 echo ""
-echo "==> agent-canvas (last 30 lines)"
-docker logs agent-canvas --tail 30 2>&1 || true
-
-echo ""
-echo "==> orchestrator (last 20 lines)"
-docker logs orchestrator --tail 20 2>&1 || true
-
-echo ""
-echo "==> Caddy TLS (public IPv4)"
-docker exec caddy wget -qO- --timeout=5 --no-check-certificate "https://${PUBLIC_IP:-127.0.0.1}/" 2>&1 | head -c 120 || echo "HTTPS probe failed — run: bash scripts/generate-caddyfile.sh && docker compose restart caddy"
+echo "==> orchestrator (last 15 lines)"
+docker logs orchestrator --tail 15 2>&1 || true

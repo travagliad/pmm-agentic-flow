@@ -54,18 +54,18 @@ resource "linode_firewall" "loop" {
   }
 
   inbound {
-    label    = "allow-http"
+    label    = "allow-agent-canvas"
     action   = "ACCEPT"
     protocol = "TCP"
-    ports    = "80"
+    ports    = "8000"
     ipv4     = ["0.0.0.0/0"]
   }
 
   inbound {
-    label    = "allow-https"
+    label    = "allow-orchestrator"
     action   = "ACCEPT"
     protocol = "TCP"
-    ports    = "443"
+    ports    = "8080"
     ipv4     = ["0.0.0.0/0"]
   }
 
@@ -87,25 +87,25 @@ output "ssh_command" {
 }
 
 output "app_url" {
-  value       = "https://${linode_instance.loop_host.ip_address}/"
-  description = "Agent Canvas UI (Caddy tls internal — accept browser cert warning)."
+  value       = "http://${linode_instance.loop_host.ip_address}:8000/"
+  description = "Agent Canvas UI (direct HTTP, no reverse proxy)."
 }
 
 output "jira_webhook_url" {
-  value = "https://${linode_instance.loop_host.ip_address}/hooks/jira"
+  value = "http://${linode_instance.loop_host.ip_address}:8080/hooks/jira"
 }
 
 output "next_steps" {
   value = <<-EOT
     1. Wait ~5 min for cloud-init
     2. SSH: ssh root@${linode_instance.loop_host.ip_address}
-    3. Open: https://${linode_instance.loop_host.ip_address}/ (accept self-signed cert)
-    4. Jira webhook: https://${linode_instance.loop_host.ip_address}/hooks/jira
+    3. Open: http://${linode_instance.loop_host.ip_address}:8000/
+    4. Jira webhook: http://${linode_instance.loop_host.ip_address}:8080/hooks/jira
     5. API key: grep AGENT_CANVAS_API_KEY /etc/pmm-agentic-flow/env
   EOT
 }
 
 output "openhands_url" {
-  value       = "https://${linode_instance.loop_host.ip_address}/"
+  value       = "http://${linode_instance.loop_host.ip_address}:8000/"
   description = "Deprecated alias for app_url."
 }

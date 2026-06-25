@@ -2,7 +2,7 @@
 # Simulate a Jira status transition (POC without Jira admin).
 set -euo pipefail
 
-BASE_URL="${ORCHESTRATOR_BASE_URL:-https://127.0.0.1/orchestrator}"
+BASE_URL="${ORCHESTRATOR_BASE_URL:-http://127.0.0.1:8080/orchestrator}"
 API_KEY="${ORCHESTRATOR_API_KEY:?Set ORCHESTRATOR_API_KEY}"
 
 TICKET="${1:?Usage: simulate-transition.sh PMM-12345 'In Progress' [summary]}"

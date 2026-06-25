@@ -3,8 +3,8 @@
 set -euo pipefail
 
 LEGACY=(
-  loop-litellm loop-openhands loop-openhands-init loop-agent-canvas-init
-  loop-agent-canvas loop-orchestrator loop-caddy
+  caddy loop-caddy loop-litellm loop-openhands loop-openhands-init loop-agent-canvas-init
+  loop-agent-canvas loop-orchestrator
 )
 
 echo "==> Stopping legacy containers..."

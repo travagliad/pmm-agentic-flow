@@ -15,8 +15,7 @@ write_files:
   - path: /etc/pmm-agentic-flow/env
     permissions: "0600"
     content: |
-      AGENT_CANVAS_PUBLIC_URL=https://__PUBLIC_IP__
-      PUBLIC_IP=__PUBLIC_IP__
+      AGENT_CANVAS_PUBLIC_URL=http://__PUBLIC_IP__:8000
       AGENT_CANVAS_VERSION=${agent_canvas_version}
       AGENT_CANVAS_API_KEY=${agent_canvas_api_key}
       AGENT_CANVAS_SECRET_KEY=${agent_canvas_secret_key}
@@ -52,16 +51,15 @@ write_files:
       fi
       cp /etc/pmm-agentic-flow/env "$DEST/.env"
       bash "$DEST/scripts/stack-cleanup.sh" || true
-      bash "$DEST/scripts/ensure-public-ip.sh"
       cd "$DEST/deploy"
       docker compose --env-file "$DEST/.env" pull
-      docker compose --env-file "$DEST/.env" up -d --build
-      echo "Stack deployed. Open https://$PUBLIC_IP/ (accept self-signed cert on first visit)."
+      docker compose --env-file "$DEST/.env" up -d --build --remove-orphans
+      echo "Stack deployed. Open http://$PUBLIC_IP:8000/"
 
 runcmd:
   - ufw allow OpenSSH
-  - ufw allow 80/tcp
-  - ufw allow 443/tcp
+  - ufw allow 8000/tcp
+  - ufw allow 8080/tcp
   - ufw --force enable
   - curl -fsSL https://get.docker.com | sh
   - usermod -aG docker root

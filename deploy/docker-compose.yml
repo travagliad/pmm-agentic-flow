@@ -33,8 +33,8 @@ services:
       - agent-canvas-state:/home/openhands/.openhands
       - agent-canvas-projects:/projects
       - ../sandbox:/projects/pmm-agentic-flow/sandbox:ro
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/"]
       interval: 30s
@@ -54,7 +54,7 @@ services:
       ORCHESTRATOR_PORT: ${ORCHESTRATOR_PORT:-8080}
       ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY}
       AGENT_CANVAS_BASE_URL: http://agent-canvas:8000
-      AGENT_CANVAS_PUBLIC_URL: ${AGENT_CANVAS_PUBLIC_URL:-https://127.0.0.1}
+      AGENT_CANVAS_PUBLIC_URL: ${AGENT_CANVAS_PUBLIC_URL:-http://127.0.0.1:8000}
       AGENT_CANVAS_API_KEY: ${AGENT_CANVAS_API_KEY}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
       LINODE_TOKEN: ${LINODE_TOKEN:-}
@@ -70,31 +70,10 @@ services:
       - ../config/stack.yaml:/config/stack.yaml:ro
       - ../config/jira-workflow.yaml:/config/jira-workflow.yaml:ro
       - orchestrator-data:/data
-    expose:
-      - "8080"
-
-  caddy:
-    image: caddy:2.9-alpine
-    container_name: caddy
-    restart: unless-stopped
-    depends_on:
-      agent-canvas:
-        condition: service_started
-      orchestrator:
-        condition: service_started
-    environment:
-      PUBLIC_IP: ${PUBLIC_IP:-127.0.0.1}
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+      - "8080:8080"
 
 volumes:
   agent-canvas-state:
   agent-canvas-projects:
   orchestrator-data:
-  caddy-data:
-  caddy-config:
