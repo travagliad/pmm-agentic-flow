@@ -23,10 +23,29 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
   const backendHost = sandboxBackendHost(publicBase, ticketKey);
 
   if (!conversationId) {
+    const latestLog = ticket.logs.length > 0 ? ticket.logs[ticket.logs.length - 1] : "";
+    const logLine = latestLog
+      ? `<p class="log">${escapeHtml(latestLog)}</p>`
+      : '<p class="log">Waiting for orchestrator…</p>';
+    const pollMs = 12_000;
+
     return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="utf-8"><title>${ticketKey}</title></head>
-<body><p>Conversation not started yet for ${ticketKey}. Wait for the orchestrator to provision the sandbox.</p></body>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="12">
+  <title>${escapeHtml(ticketKey)} — provisioning</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; line-height: 1.5; }
+    .log { color: #555; font-size: 0.9rem; border-left: 3px solid #ccc; padding-left: 0.75rem; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(ticketKey)}</h1>
+  <p>Provisioning sandbox runner and starting conversation. This page refreshes automatically.</p>
+  ${logLine}
+  <script>setTimeout(function() { location.reload(); }, ${pollMs});</script>
+</body>
 </html>`;
   }
 
@@ -84,4 +103,12 @@ export function chatBootstrapHtml(ticket: TicketRecord, env: Env): string {
 </script>
 </body>
 </html>`;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

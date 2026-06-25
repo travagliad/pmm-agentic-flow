@@ -68,7 +68,8 @@ function main() {
       res.status(404).json({ error: "Not found" });
       return;
     }
-    res.json(ticket);
+    engine.resumeIfStalled(key);
+    res.json(engine.getTicket(key) ?? ticket);
   });
 
   api.post("/tickets/transition", auth, async (req, res) => {
@@ -105,22 +106,6 @@ function main() {
     }
   });
 
-  api.post("/tickets/:key/retry", auth, async (req, res) => {
-    try {
-      const key = String(req.params.key).toUpperCase();
-      const body = z
-        .object({
-          summary: z.string().optional(),
-          description: z.string().optional(),
-        })
-        .parse(req.body ?? {});
-      const ticket = await engine.retryTicket(key, body);
-      res.status(202).json(ticket);
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
-    }
-  });
-
   api.post("/tickets/:key/refresh-access", auth, async (req, res) => {
     const key = String(req.params.key).toUpperCase();
     const ticket = engine.getTicket(key);
@@ -141,7 +126,8 @@ function main() {
       res.status(404).send(`Ticket ${key} not found.`);
       return;
     }
-    res.type("html").send(chatBootstrapHtml(ticket, env));
+    engine.resumeIfStalled(key);
+    res.type("html").send(chatBootstrapHtml(engine.getTicket(key) ?? ticket, env));
   });
 
   const { attachUpgrade } = attachSandboxProxy(app, (key) => engine.getTicket(key));

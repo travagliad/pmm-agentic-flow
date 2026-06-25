@@ -22,11 +22,14 @@ export type TransitionInput = {
   issue?: IssueContext;
 };
 
+const RUNNER_PHASES: TicketPhase[] = ["ready_for_refinement", "in_progress", "in_qa"];
+
 export class WorkflowEngine {
   private readonly store: TicketStore;
   private readonly jira: JiraClient;
   private readonly fb: FbResolver;
   private readonly runner: LinodeRunnerClient;
+  private readonly resumeInFlight = new Set<string>();
 
   constructor(
     private readonly env: Env,
@@ -238,20 +241,54 @@ export class WorkflowEngine {
     await this.postAccessBundle(ticket, reason);
   }
 
-  async retryTicket(ticketKey: string, issue: IssueContext = {}): Promise<TicketRecord> {
-    const ticket = this.store.get(ticketKey);
-    if (!ticket) {
-      throw new Error(`Ticket ${ticketKey} not found`);
-    }
+  /** Fire-and-forget: reprovision dead runners or restart stalled phases on chat/API visit. */
+  resumeIfStalled(ticketKey: string): void {
+    const key = ticketKey.toUpperCase();
+    if (this.resumeInFlight.has(key)) return;
+
+    const ticket = this.store.get(key);
+    if (!ticket || ticket.phase === "done" || ticket.phase === "ready_for_work") return;
+    if (!RUNNER_PHASES.includes(ticket.phase)) return;
+
+    this.resumeInFlight.add(key);
+    void this.checkAndResume(ticket).finally(() => this.resumeInFlight.delete(key));
+  }
+
+  private async checkAndResume(ticket: TicketRecord): Promise<void> {
+    const stalled = await this.isRunnerStalled(ticket);
+    if (!stalled) return;
+
     const statusName = this.statusForPhase(ticket.phase);
-    if (!statusName) {
-      throw new Error(`Cannot retry ticket in phase ${ticket.phase}`);
+    if (!statusName) return;
+
+    this.store.log(ticket, "Auto-resuming stalled ticket (runner missing or unreachable)");
+    try {
+      await this.handleTransition({
+        ticketKey: ticket.ticketKey,
+        statusName,
+        issue: {},
+      });
+    } catch (err) {
+      const fresh = this.store.get(ticket.ticketKey);
+      if (fresh) {
+        this.store.log(
+          fresh,
+          `Auto-resume failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
-    return this.handleTransition({
-      ticketKey,
-      statusName,
-      issue,
-    });
+  }
+
+  private async isRunnerStalled(ticket: TicketRecord): Promise<boolean> {
+    if (!ticket.conversationId) return true;
+
+    const linodeId = ticket.runnerLinodeId ?? ticket.workerLinodeId;
+    const ip = ticket.runnerIp ?? ticket.workerIp;
+    if (!linodeId || !ip) return true;
+
+    const exists = await this.runner.instanceExists(linodeId);
+    if (!exists) return true;
+    return !(await this.runner.isCanvasReachable(ip));
   }
 
   private statusForPhase(phase: TicketPhase): string | undefined {
