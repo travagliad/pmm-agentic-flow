@@ -7,12 +7,18 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT/.env}"
 UID_NUM="${AGENT_CANVAS_UID:-1000}"
 COMPOSE="docker compose --env-file $ENV_FILE -f $ROOT/deploy/docker-compose.yml"
+VOL="agentic-flow_agent-canvas-state"
 
-echo "==> Stopping agent-canvas..."
-$COMPOSE stop agent-canvas 2>/dev/null || true
+echo "==> Stopping services that use the canvas volume..."
+$COMPOSE stop agent-canvas agent-canvas-init 2>/dev/null || true
+$COMPOSE rm -f agent-canvas agent-canvas-init 2>/dev/null || true
 docker rm -f agent-canvas 2>/dev/null || true
 
-VOL="agentic-flow_agent-canvas-state"
+echo "==> Removing containers still attached to $VOL..."
+while read -r cid; do
+  [ -n "$cid" ] && docker rm -f "$cid"
+done < <(docker ps -aq --filter "volume=$VOL" 2>/dev/null || true)
+
 if docker volume inspect "$VOL" >/dev/null 2>&1; then
   echo "==> Removing volume $VOL"
   docker volume rm "$VOL"
