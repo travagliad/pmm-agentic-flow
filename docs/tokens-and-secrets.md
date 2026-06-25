@@ -39,11 +39,15 @@ Bootstrap sets `AGENT_CANVAS_PUBLIC_URL=https://<ip>` automatically. No sslip.io
 | GitHub PAT | https://github.com/settings/tokens (`repo` scope) |
 | Jira API token | https://id.atlassian.com/manage-profile/security/api-tokens |
 
-## LLM providers (no LiteLLM)
+## LLM providers
 
-This stack does **not** run LiteLLM. Configure models in **Agent Canvas → Manage Backends**:
+| Goal | Path |
+|------|------|
+| Chat interativo no Canvas | Settings → LLM (Anthropic/OpenAI) **ou** ACP — ver [llm-acp.md](./llm-acp.md) |
+| **Cursor subscrição, sem ACP no UI** | **Cloud Agents REST API** — ver [cursor-api.md](./cursor-api.md) |
+| Testar key | `bash scripts/test-cursor-api.sh` |
 
-See [llm-acp.md](./llm-acp.md) for Cursor and Copilot via ACP.
+This stack does **not** run LiteLLM. Cursor API key does **not** go in Settings → LLM.
 
 ## Team deployment (not POC)
 

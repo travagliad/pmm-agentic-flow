@@ -37,9 +37,10 @@ export ORCHESTRATOR_BASE_URL=http://<ip>:8080/orchestrator
 | Só docker compose up | Sim | **Não** — falta provider |
 | API key Anthropic/OpenAI no Canvas Settings | Sim | Sim |
 | Cursor `agent acp` / Copilot `copilot acp` | Sim | Sim (via Manage Backends) |
+| Cursor Cloud Agents API (`CURSOR_API_KEY`) | UI abre | **Não no chat** — agentes async em repo GitHub; ver [cursor-api.md](./cursor-api.md) |
 
-**Não vai no Terraform** — credencial pessoal, configuras depois no Canvas.
+**Não vai no Terraform** — credencial pessoal.
 
-Instalação opcional dos CLIs: `bash scripts/install-agent-clis.sh`
+Testar Cursor API: `bash scripts/test-cursor-api.sh`
 
-Alternativa com subscrição Cursor: `bash scripts/setup-cursor-acp.sh` — ver [llm-acp.md](./llm-acp.md).
+Alternativa chat no Canvas: ACP ou API Anthropic/OpenAI — ver [llm-acp.md](./llm-acp.md).
