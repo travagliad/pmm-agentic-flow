@@ -25,7 +25,9 @@ jira_base_url           = "https://your-org.atlassian.net"
 jira_email              = "you@example.com"
 jira_api_token          = ""
 
+# Stable public URL (recommended). Free static domain from ngrok dashboard.
+# Use agent binding on the VM — remove Cloud Endpoint forward-internal→default.internal if present.
 ngrok_authtoken         = ""
-ngrok_domain            = ""
+ngrok_domain            = "https://dismay-concierge-gem.ngrok-free.dev"
 expose_ports_directly   = false
 data_volume_size        = 50

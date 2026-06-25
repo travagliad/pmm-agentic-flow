@@ -13,20 +13,24 @@ provider "linode" {
 }
 
 locals {
-  use_ngrok             = var.ngrok_domain != ""
+  ngrok_domain          = var.ngrok_domain != "" && !startswith(var.ngrok_domain, "http") ? "https://${var.ngrok_domain}" : var.ngrok_domain
+  use_ngrok             = local.ngrok_domain != ""
   expose_ports_directly = local.use_ngrok ? false : var.expose_ports_directly
-  public_url_placeholder = local.use_ngrok ? var.ngrok_domain : "http://__PUBLIC_IP__:8000"
+  public_url_placeholder = local.use_ngrok ? local.ngrok_domain : "http://__PUBLIC_IP__:8000"
   public_ipv4 = one([
     for addr in sort(tolist(linode_instance.loop_host.ipv4)) : addr
     if !startswith(addr, "192.168.")
   ])
-  app_url      = local.use_ngrok ? var.ngrok_domain : "http://${local.public_ipv4}:8080/"
-  jira_webhook = local.use_ngrok ? "${trim(var.ngrok_domain, "/")}/hooks/jira" : "http://${local.public_ipv4}:8080/hooks/jira"
+  app_url      = local.use_ngrok ? local.ngrok_domain : "http://${local.public_ipv4}:8080/"
+  jira_webhook = local.use_ngrok ? "${trim(local.ngrok_domain, "/")}/hooks/jira" : "http://${local.public_ipv4}:8080/hooks/jira"
   next_steps_ngrok = <<-EOT
-    1. Wait ~8 min for cloud-init (orchestrator + ngrok)
-    2. Jira webhook: ${trim(var.ngrok_domain, "/")}/hooks/jira
-    3. Chat runners: orchestrator provisions one Linode per ticket — links posted in Jira
-    4. SSH (admin only): ssh root@${local.public_ipv4}
+    1. Wait ~8 min for cloud-init (orchestrator + ngrok agent)
+    2. ngrok dashboard: if dismay-concierge-gem is a Cloud Endpoint with forward-internal→default.internal,
+       delete that policy or the Cloud Endpoint — the VM agent must own this URL.
+    3. Orchestrator: ${trim(local.ngrok_domain, "/")}/
+    4. Jira webhook: ${trim(local.ngrok_domain, "/")}/hooks/jira
+    5. First sandbox: POST ${trim(local.ngrok_domain, "/")}/orchestrator/tickets/transition (see scripts/simulate-transition.sh)
+    6. SSH (admin only): ssh root@${local.public_ipv4}
   EOT
   next_steps_direct = <<-EOT
     1. Wait ~8 min for cloud-init
@@ -63,7 +67,7 @@ resource "linode_instance" "loop_host" {
       linode_token            = var.linode_token
       worker_root_password    = var.worker_root_password
       ngrok_authtoken         = var.ngrok_authtoken
-      ngrok_domain            = var.ngrok_domain
+      ngrok_domain            = local.ngrok_domain
       expose_ports_directly   = local.expose_ports_directly
       public_url_placeholder  = local.public_url_placeholder
     }))
@@ -126,7 +130,7 @@ output "ssh_command" {
 
 output "app_url" {
   value       = local.app_url
-  description = "Agent Canvas URL (ngrok domain or direct IP)."
+  description = "Orchestrator public URL (ngrok domain or direct IP :8080)."
 }
 
 output "jira_webhook_url" {
