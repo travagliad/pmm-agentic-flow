@@ -35,10 +35,13 @@ EOF
   chmod +x "$CURL_IPV4_DIR/curl"
 }
 
-fix_local_ownership() {
-  if [ -d "$LOCAL" ]; then
-    chown -R "${UID_NUM}:${GID_NUM}" "$LOCAL"
-  fi
+prepare_local_volume() {
+  mkdir -p \
+    "$LOCAL/bin" \
+    "$LOCAL/share/cursor-agent/versions" \
+    "$LOCAL/share"
+  chown -R "${UID_NUM}:${GID_NUM}" "$LOCAL"
+  chmod -R u+rwX "$LOCAL"
 }
 
 install_cursor_cli() {
@@ -49,8 +52,9 @@ install_cursor_cli() {
   echo "[entrypoint-wrapper] installing cursor CLI (IPv4-only curl)..."
   local attempt
   for attempt in 1 2 3; do
+    prepare_local_volume
     if run_as_openhands 'curl -fsSL https://cursor.com/install | bash'; then
-      fix_local_ownership
+      prepare_local_volume
       if [ -x "$AGENT_BIN" ]; then
         echo "[entrypoint-wrapper] cursor CLI installed: $($AGENT_BIN --version 2>/dev/null || echo ok)"
         return 0
@@ -72,8 +76,9 @@ install_copilot_cli() {
   echo "[entrypoint-wrapper] installing copilot CLI (IPv4-only curl)..."
   local attempt
   for attempt in 1 2 3; do
+    prepare_local_volume
     if run_as_openhands 'curl -fsSL https://gh.io/copilot-install | bash'; then
-      fix_local_ownership
+      prepare_local_volume
       if [ -x "$COPILOT_BIN" ]; then
         echo "[entrypoint-wrapper] copilot CLI installed: $($COPILOT_BIN --version 2>/dev/null || echo ok)"
         return 0
@@ -95,12 +100,13 @@ mkdir -p \
   "$OH/automation" \
   "$OH/agent-canvas" \
   "$OH/agent-canvas/conversations" \
-  "$OH/agent-canvas/bash_events" \
-  "$LOCAL/bin"
+  "$OH/agent-canvas/bash_events"
 
 chown -R "${UID_NUM}:${GID_NUM}" "$OH"
 chmod -R u+rwX "$OH"
 touch "$OH/automation/.write-test" && rm -f "$OH/automation/.write-test"
+
+prepare_local_volume
 
 install_cursor_cli
 install_copilot_cli
