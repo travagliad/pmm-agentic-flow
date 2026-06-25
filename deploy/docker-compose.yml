@@ -1,5 +1,8 @@
 name: agentic-flow
 
+# Linode VM only. Secrets: /etc/pmm-agentic-flow/env (written by Terraform cloud-init).
+#   docker compose --env-file /etc/pmm-agentic-flow/env up -d
+
 services:
   agent-canvas-init:
     image: ghcr.io/openhands/agent-canvas:${AGENT_CANVAS_VERSION:-latest}
@@ -44,7 +47,8 @@ services:
       AUTOMATION_BASE_URL: ${AGENT_CANVAS_PUBLIC_URL:-http://127.0.0.1:8000}
       AUTOMATION_DB_URL: sqlite+aiosqlite:////home/openhands/.openhands/automation/automations.db
       CURSOR_API_KEY: ${CURSOR_API_KEY:-}
-      INSTALL_CURSOR_CLI: ${INSTALL_CURSOR_CLI:-1}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_COPILOT_TOKEN: ${GITHUB_COPILOT_TOKEN:-}
       PATH: /home/openhands/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - agent-canvas-state:/home/openhands/.openhands
@@ -56,7 +60,6 @@ services:
     ports:
       - "8000:8000"
     healthcheck:
-      # Proxy :8000/health can lag under load; agent-server :18000 is what "Disconnected" means.
       test: ["CMD-SHELL", "wget -qO- --timeout=8 http://127.0.0.1:18000/health >/dev/null && wget -qO- --timeout=8 http://127.0.0.1:8000/health >/dev/null"]
       interval: 30s
       timeout: 15s

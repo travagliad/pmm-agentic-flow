@@ -52,6 +52,13 @@ variable "github_token" {
   sensitive = true
 }
 
+variable "github_copilot_token" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Copilot CLI auth token (gho_). Defaults to github_token when empty."
+}
+
 variable "agent_canvas_api_key" {
   type        = string
   sensitive   = true
@@ -99,6 +106,12 @@ variable "jira_api_token" {
 }
 
 variable "jira_webhook_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "cursor_api_key" {
   type      = string
   sensitive = true
   default   = ""

@@ -23,6 +23,7 @@ write_files:
       ORCHESTRATOR_API_KEY=${orchestrator_api_key}
       ORCHESTRATOR_PORT=8080
       GITHUB_TOKEN=${github_token}
+      GITHUB_COPILOT_TOKEN=${github_copilot_token}
       LINODE_TOKEN=${linode_token}
       WORKER_ROOT_PASSWORD=${worker_root_password}
       SANDBOX_TTL_HOURS=72
@@ -32,6 +33,7 @@ write_files:
       JIRA_EMAIL=${jira_email}
       JIRA_API_TOKEN=${jira_api_token}
       JIRA_WEBHOOK_SECRET=${jira_webhook_secret}
+      CURSOR_API_KEY=${cursor_api_key}
 
   - path: /opt/pmm-agentic-flow/bootstrap.sh
     permissions: "0755"
@@ -40,20 +42,23 @@ write_files:
       set -euo pipefail
       REPO="${bootstrap_repo_url}"
       DEST=/opt/pmm-agentic-flow/src
+      ENV_FILE=/etc/pmm-agentic-flow/env
       PUBLIC_IP="$(curl -4 -fsSL https://ifconfig.me/ip 2>/dev/null || curl -4 -fsSL https://ipv4.icanhazip.com)"
       echo "Public IPv4: $PUBLIC_IP"
-      sed -i "s|__PUBLIC_IP__|$PUBLIC_IP|g" /etc/pmm-agentic-flow/env
-      echo "Cloning $REPO → $DEST"
+      sed -i "s|__PUBLIC_IP__|$PUBLIC_IP|g" "$ENV_FILE"
+      echo "Cloning $REPO -> $DEST"
       if [ ! -d "$DEST/.git" ]; then
         git clone "$REPO" "$DEST"
       else
         git -C "$DEST" pull --ff-only
       fi
-      cp /etc/pmm-agentic-flow/env "$DEST/.env"
-      bash "$DEST/scripts/stack-cleanup.sh" || true
+      for legacy in caddy loop-caddy loop-litellm loop-openhands loop-orchestrator; do
+        docker rm -f "$legacy" 2>/dev/null || true
+      done
       cd "$DEST/deploy"
-      docker compose --env-file "$DEST/.env" pull
-      docker compose --env-file "$DEST/.env" up -d --build --remove-orphans
+      docker compose --env-file "$ENV_FILE" pull
+      docker compose --env-file "$ENV_FILE" run --rm agent-canvas-init
+      docker compose --env-file "$ENV_FILE" up -d --build --remove-orphans
       echo "Stack deployed. Open http://$PUBLIC_IP:8000/"
 
 runcmd:
@@ -77,8 +82,8 @@ runcmd:
     Type=oneshot
     RemainAfterExit=yes
     WorkingDirectory=/opt/pmm-agentic-flow/src/deploy
-    ExecStart=/usr/bin/docker compose --env-file /opt/pmm-agentic-flow/src/.env up -d
-    ExecStop=/usr/bin/docker compose --env-file /opt/pmm-agentic-flow/src/.env down
+    ExecStart=/usr/bin/docker compose --env-file /etc/pmm-agentic-flow/env up -d
+    ExecStop=/usr/bin/docker compose --env-file /etc/pmm-agentic-flow/env down
 
     [Install]
     WantedBy=multi-user.target

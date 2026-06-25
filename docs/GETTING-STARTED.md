@@ -11,7 +11,7 @@
 
 ```powershell
 cd C:\Users\davi_\vscodeProjects\pmm-agentic-flow\deploy
-docker compose --env-file ..\.env down -v --remove-orphans
+docker compose -p agentic-flow down -v --remove-orphans
 ```
 
 **Or:**
@@ -58,10 +58,10 @@ Required in `terraform.tfvars`:
 |----------|---------|
 | `linode_token` | Linode API token |
 | `root_password` | Strong password for SSH |
-| `domain` | `loop.yourdomain.com` |
 | `bootstrap_repo_url` | Your GitHub repo URL |
 | `github_token` | `ghp_...` |
-| `github_copilot_token` | Copilot / `gh auth token` |
+| `cursor_api_key` | Cursor dashboard API key |
+| `github_copilot_token` | `gho_...` (optional) |
 | `admin_cidrs` | See [Why your IP?](#why-admin_cidrs-your-public-ip) below |
 
 #### Why `admin_cidrs` (your public IP)?
@@ -77,7 +77,7 @@ This is **not** for running the stack on your PC. Everything (OpenHands, agents,
 
 Your **public** IP is what websites see when you browse — not `192.168.x.x`. Check: [https://ifconfig.me](https://ifconfig.me)
 
-HTTPS (OpenHands UI, Jira webhooks) stays open to everyone on `:443` — that is separate from SSH.
+Agent Canvas (`:8000`) and orchestrator (`:8080`) stay open to everyone — separate from SSH.
 
 ```powershell
 terraform init
@@ -161,20 +161,12 @@ Or open OpenHands in the browser and type:
 ### Recovery on the Linode (SSH)
 
 ```bash
-ssh root@139.162.150.187
-bash /opt/pmm-agentic-flow/src/scripts/stack-diagnose.sh
-bash /opt/pmm-agentic-flow/src/scripts/linode-recover.sh
-# or if repo missing:
-git clone https://github.com/travagliad/pmm-agentic-flow.git /opt/pmm-agentic-flow/src
-cp /etc/pmm-agentic-flow/env /opt/pmm-agentic-flow/src/.env
-# edit LOOP_DOMAIN to 139-162-150-187.sslip.io
-cd /opt/pmm-agentic-flow/src/deploy && docker compose --env-file ../.env up -d --build
-```
-
-Correct URL pattern (IP `139.162.150.187`):
-
-```text
-https://pmmagents.139-162-150-187.sslip.io/
+ssh root@<public_ip>
+tail -100 /var/log/pmm-agentic-flow-bootstrap.log
+docker ps
+cd /opt/pmm-agentic-flow/src/deploy
+docker compose --env-file /etc/pmm-agentic-flow/env run --rm agent-canvas-init
+docker compose --env-file /etc/pmm-agentic-flow/env up -d --build --remove-orphans
 ```
 
 See also: [agent-canvas.md](./agent-canvas.md), [deploy-linode.md](./deploy-linode.md)

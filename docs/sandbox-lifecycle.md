@@ -13,8 +13,12 @@ No Caddy, no TLS, no cert warnings. POC only — add HTTPS when you have a domai
 
 ```bash
 cd /opt/pmm-agentic-flow/src && git pull
-bash scripts/linode-recover.sh
+cd deploy
+docker compose --env-file /etc/pmm-agentic-flow/env run --rm agent-canvas-init
+docker compose --env-file /etc/pmm-agentic-flow/env up -d --build --remove-orphans
 ```
+
+**Cursor/Copilot** — `cursor_api_key` / `github_copilot_token` em `terraform.tfvars`. Ver [llm-acp.md](./llm-acp.md).
 
 Firewall (Linode Cloud + ufw): **TCP 8000** and **8080**.
 
@@ -39,8 +43,4 @@ export ORCHESTRATOR_BASE_URL=http://<ip>:8080/orchestrator
 | Cursor `agent acp` / Copilot `copilot acp` | Sim | Sim (via Manage Backends) |
 | Cursor Cloud Agents API (`CURSOR_API_KEY`) | UI abre | **Não no chat** — agentes async em repo GitHub; ver [cursor-api.md](./cursor-api.md) |
 
-**Não vai no Terraform** — credencial pessoal.
-
-Testar Cursor API: `bash scripts/test-cursor-api.sh`
-
-Alternativa chat no Canvas: ACP ou API Anthropic/OpenAI — ver [llm-acp.md](./llm-acp.md).
+**Cursor/Copilot no Terraform** — ver [llm-acp.md](./llm-acp.md).

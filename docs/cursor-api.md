@@ -20,22 +20,14 @@ Se não queres ACP no UI, o caminho é **Cloud Agents API** (orchestrator/script
 
 ## 2. Guardar no servidor
 
-```bash
-# /opt/pmm-agentic-flow/src/.env
-CURSOR_API_KEY=crsr_...
-
-# opcional: espelhar em secrets do sistema
-grep CURSOR_API_KEY /opt/pmm-agentic-flow/src/.env | sudo tee -a /etc/pmm-agentic-flow/env
-```
+Set `cursor_api_key` in `terraform/terraform.tfvars` — cloud-init writes `/etc/pmm-agentic-flow/env`.
 
 ## 3. Testar a key
 
 ```bash
-cd /opt/pmm-agentic-flow/src
-bash scripts/test-cursor-api.sh
+source /etc/pmm-agentic-flow/env
+curl -sS -u "${CURSOR_API_KEY}:" https://api.cursor.com/v1/me | jq .
 ```
-
-Esperado: JSON com info da conta (`/v1/me`).
 
 ## 4. Lançar um Cloud Agent (exemplo)
 
@@ -87,4 +79,4 @@ export CURSOR_API_KEY=crsr_...
 agent -p "Explain this repo in one paragraph"
 ```
 
-Precisa do CLI instalado (`bash scripts/setup-cursor-acp.sh` instala só o binário; ignora a parte ACP do UI).
+Precisa do CLI instalado automaticamente pelo entrypoint (`/home/openhands/.local/bin/agent`).

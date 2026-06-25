@@ -23,20 +23,22 @@ resource "linode_instance" "loop_host" {
 
   metadata {
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml.tpl", {
-      bootstrap_repo_url     = var.bootstrap_repo_url
-      github_token           = var.github_token
-      agent_canvas_api_key   = coalesce(var.agent_canvas_api_key, var.openhands_api_key)
+      bootstrap_repo_url      = var.bootstrap_repo_url
+      github_token            = var.github_token
+      github_copilot_token    = var.github_copilot_token != "" ? var.github_copilot_token : var.github_token
+      agent_canvas_api_key    = coalesce(var.agent_canvas_api_key, var.openhands_api_key)
       agent_canvas_secret_key = var.agent_canvas_secret_key
-      agent_canvas_version   = var.agent_canvas_version
-      orchestrator_api_key   = var.orchestrator_api_key
-      jira_base_url          = var.jira_base_url
-      jira_email             = var.jira_email
-      jira_api_token         = var.jira_api_token
-      jira_webhook_secret    = var.jira_webhook_secret
-      linode_token           = var.linode_token
-      worker_root_password   = var.worker_root_password
-      worker_linode_type     = var.worker_linode_type
-      worker_linode_region   = var.worker_linode_region
+      agent_canvas_version    = var.agent_canvas_version
+      orchestrator_api_key    = var.orchestrator_api_key
+      jira_base_url           = var.jira_base_url
+      jira_email              = var.jira_email
+      jira_api_token          = var.jira_api_token
+      jira_webhook_secret     = var.jira_webhook_secret
+      cursor_api_key          = var.cursor_api_key
+      linode_token            = var.linode_token
+      worker_root_password    = var.worker_root_password
+      worker_linode_type      = var.worker_linode_type
+      worker_linode_region    = var.worker_linode_region
     }))
   }
 }
@@ -74,38 +76,47 @@ resource "linode_firewall" "loop" {
   linodes         = [linode_instance.loop_host.id]
 }
 
+# ip_address on linode_instance is deprecated (provider >=2.x, removal planned in v3).
+locals {
+  public_ipv4 = one([
+    for addr in sort(tolist(linode_instance.loop_host.ipv4)) : addr
+    if !startswith(addr, "192.168.")
+  ])
+}
+
 output "instance_id" {
   value = linode_instance.loop_host.id
 }
 
 output "public_ip" {
-  value = linode_instance.loop_host.ip_address
+  value       = local.public_ipv4
+  description = "Primary public IPv4 (from linode_instance.ipv4)."
 }
 
 output "ssh_command" {
-  value = "ssh root@${linode_instance.loop_host.ip_address}"
+  value = "ssh root@${local.public_ipv4}"
 }
 
 output "app_url" {
-  value       = "http://${linode_instance.loop_host.ip_address}:8000/"
+  value       = "http://${local.public_ipv4}:8000/"
   description = "Agent Canvas UI (direct HTTP, no reverse proxy)."
 }
 
 output "jira_webhook_url" {
-  value = "http://${linode_instance.loop_host.ip_address}:8080/hooks/jira"
+  value = "http://${local.public_ipv4}:8080/hooks/jira"
 }
 
 output "next_steps" {
   value = <<-EOT
     1. Wait ~5 min for cloud-init
-    2. SSH: ssh root@${linode_instance.loop_host.ip_address}
-    3. Open: http://${linode_instance.loop_host.ip_address}:8000/
-    4. Jira webhook: http://${linode_instance.loop_host.ip_address}:8080/hooks/jira
+    2. SSH: ssh root@${local.public_ipv4}
+    3. Open: http://${local.public_ipv4}:8000/
+    4. Jira webhook: http://${local.public_ipv4}:8080/hooks/jira
     5. API key: grep AGENT_CANVAS_API_KEY /etc/pmm-agentic-flow/env
   EOT
 }
 
 output "openhands_url" {
-  value       = "http://${linode_instance.loop_host.ip_address}:8000/"
+  value       = "http://${local.public_ipv4}:8000/"
   description = "Deprecated alias for app_url."
 }

@@ -15,21 +15,21 @@ Run three times: `agent_canvas_api_key`, `agent_canvas_secret_key`, `orchestrato
 | **AGENT_CANVAS_API_KEY** | You (browser) + orchestrator | Protects the Agent Canvas UI/API when exposed on the internet. Enter once in the Canvas login/settings. Orchestrator sends it when creating conversations. |
 | **AGENT_CANVAS_SECRET_KEY** | Agent Canvas only | Encrypts secrets the Canvas stores on disk (provider tokens, settings). Not sent on every request — set once at deploy. |
 | **ORCHESTRATOR_API_KEY** | You (scripts) + Jira webhook | Protects `https://<ip>/orchestrator/*` and validates `x-api-key`. |
-| **GITHUB_TOKEN** | Orchestrator + agents | Clone repos, search pmm-submodules PRs, open PRs. |
-| **LINODE_TOKEN** | Orchestrator | Create/delete ephemeral QA worker VMs. Same token as Terraform, or a scoped sub-token. |
+| **GITHUB_TOKEN** | Orchestrator + agents | Clone repos, PRs. |
+| **github_copilot_token** (tfvars) | Copilot CLI in agent-canvas | ACP backend. |
+| **cursor_api_key** (tfvars) | Cursor CLI in agent-canvas | ACP backend. |
+| **LINODE_TOKEN** | Orchestrator | Ephemeral QA worker VMs. |
 | **JIRA_API_TOKEN** | Orchestrator | Post comments (conversation link, PMM URL) to tickets. |
 
 ## Public URL
 
-POC uses **bare Linode IP + HTTPS**:
+POC uses **bare Linode IP + HTTP**:
 
 ```text
-https://139.162.150.187/
+http://<public_ip>:8000/
 ```
 
-Caddy terminates TLS with a **self-signed cert** (`tls internal`). Accept the browser warning on first visit.
-
-Bootstrap sets `AGENT_CANVAS_PUBLIC_URL=https://<ip>` automatically. No sslip.io, no custom domain until you want one.
+Cloud-init sets `AGENT_CANVAS_PUBLIC_URL=http://<ip>:8000` automatically.
 
 ## Token links
 
@@ -45,7 +45,7 @@ Bootstrap sets `AGENT_CANVAS_PUBLIC_URL=https://<ip>` automatically. No sslip.io
 |------|------|
 | Chat interativo no Canvas | Settings → LLM (Anthropic/OpenAI) **ou** ACP — ver [llm-acp.md](./llm-acp.md) |
 | **Cursor subscrição, sem ACP no UI** | **Cloud Agents REST API** — ver [cursor-api.md](./cursor-api.md) |
-| Testar key | `bash scripts/test-cursor-api.sh` |
+| Verificar CLIs na VM | `docker exec agent-canvas ls /home/openhands/.local/bin/` |
 
 This stack does **not** run LiteLLM. Cursor API key does **not** go in Settings → LLM.
 
@@ -64,12 +64,13 @@ Personal tokens work for a solo POC; production needs identities that survive pe
 
 ## Example `terraform.tfvars`
 
-Copy from `terraform.tfvars.example`. **Never commit `terraform.tfvars`.**
+Copy from `terraform/terraform.tfvars.example`. **Never commit `terraform.tfvars`.**
+
+This is the **only** secrets file on your PC. Cloud-init writes `/etc/pmm-agentic-flow/env` on the VM.
 
 After apply:
 
 ```text
-https://<terraform output public_ip>/
-Jira webhook: https://<ip>/hooks/jira
-Test API:     https://<ip>/orchestrator/tickets  (header x-api-key)
+http://<terraform output public_ip>:8000/
+Jira webhook: http://<ip>:8080/hooks/jira
 ```

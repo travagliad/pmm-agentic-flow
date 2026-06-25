@@ -1,5 +1,5 @@
 # Single source of truth for stack defaults.
-# Terraform tfvars / .env on the VM must match infrastructure.linode below.
+# PC: terraform/terraform.tfvars — VM: /etc/pmm-agentic-flow/env (cloud-init from tfvars).
 
 infrastructure:
   linode:

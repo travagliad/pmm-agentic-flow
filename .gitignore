@@ -1,6 +1,5 @@
 .env
 .env.*
-!.env.example
 terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*

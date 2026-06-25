@@ -1,11 +1,18 @@
-# Linode sizes must match config/stack.yaml → infrastructure.linode
+# Copy to terraform.tfvars and fill secrets. Never commit terraform.tfvars.
+#
+# ONLY secrets file on your PC. Cloud-init writes /etc/pmm-agentic-flow/env on the VM.
+#
+#   cd terraform && terraform init && terraform apply
+
 linode_token            = "YOUR_LINODE_TOKEN"
 root_password           = "GENERATE_A_STRONG_PASSWORD"
 worker_root_password    = "GENERATE_A_DIFFERENT_PASSWORD_FOR_QA_WORKERS"
 bootstrap_repo_url      = "https://github.com/travagliad/pmm-agentic-flow.git"
 github_token            = "ghp_..."
+github_copilot_token    = "gho_..."
 agent_canvas_api_key    = "canvas-api-key-change-me"
 agent_canvas_secret_key = "canvas-secret-change-me"
+agent_canvas_version    = "latest"
 orchestrator_api_key    = "orch-change-me"
 region                  = "eu-central"
 instance_type           = "g6-standard-4"
@@ -17,3 +24,4 @@ jira_base_url           = "https://your-org.atlassian.net"
 jira_email              = "you@example.com"
 jira_api_token          = ""
 jira_webhook_secret     = "webhook-secret-change-me"
+cursor_api_key          = ""

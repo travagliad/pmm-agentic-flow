@@ -2,78 +2,45 @@
 
 Agent Canvas supports external agent backends over **ACP** — JSON-RPC 2.0 on stdio.
 
-No LiteLLM container in this stack. **No OpenAI/Anthropic key required** if you use Cursor.
+## Automatic setup (Terraform)
 
-## Cursor on the Linode (recommended)
+`terraform apply` writes `/etc/pmm-agentic-flow/env` on the Linode. Cloud-init runs docker compose with that file. On every `agent-canvas` start, `deploy/agent-canvas-entrypoint.sh` **always** installs missing CLIs:
 
-The ACP process runs **inside** the `agent-canvas` container (not on the host).
+| CLI | Path | Terraform var |
+|-----|------|---------------|
+| Cursor | `/home/openhands/.local/bin/agent` | `cursor_api_key` |
+| Copilot | `/home/openhands/.local/bin/copilot` | `github_copilot_token` |
 
-### One-shot setup
+CLIs persist in the `agent-canvas-local` Docker volume.
 
-```bash
-cd /opt/pmm-agentic-flow/src
-git pull
-bash scripts/setup-cursor-acp.sh
+### Secrets (`terraform/terraform.tfvars` on your PC)
+
+```hcl
+cursor_api_key       = "crsr_..."
+github_copilot_token = "gho_..."   # optional; defaults to github_token
 ```
 
-The script:
+## Canvas UI
 
-1. Installs `agent` CLI inside the container (`/home/openhands/.local/bin/agent`)
-2. Prompts for `CURSOR_API_KEY` (or explains browser login)
-3. Recreates `agent-canvas` so the key is in the container env
+1. Open `http://<public_ip>:8000/`
+2. **Manage Backends** → Cursor: `/home/openhands/.local/bin/agent` + args `acp`
+3. Or Copilot: `/home/openhands/.local/bin/copilot` + args `acp`
 
-### Get a Cursor API key
-
-Uses your **Cursor subscription** — not OpenAI/Anthropic:
-
-1. https://cursor.com/dashboard
-2. **Settings** → **API Keys** → **New API Key**
-3. Copy once → add to `/opt/pmm-agentic-flow/src/.env` as `CURSOR_API_KEY=...`
-
-Or sync from secrets file:
+## Verify on the VM
 
 ```bash
-grep CURSOR_API_KEY /etc/pmm-agentic-flow/env >> /opt/pmm-agentic-flow/src/.env
-docker compose --env-file .env -f deploy/docker-compose.yml up -d --force-recreate agent-canvas
-bash scripts/setup-cursor-acp.sh
+docker exec agent-canvas ls -la /home/openhands/.local/bin/
 ```
 
-### Browser login (no API key)
+## Re-deploy after secret changes
+
+```powershell
+cd terraform && terraform apply
+```
+
+On existing VM (cloud-init runs only on first boot):
 
 ```bash
-docker exec -it agent-canvas su -s /bin/bash openhands
-export PATH="$HOME/.local/bin:$PATH"
-NO_OPEN_BROWSER=1 agent login   # open URL on your laptop
-agent status
+cd /opt/pmm-agentic-flow/src/deploy
+docker compose --env-file /etc/pmm-agentic-flow/env up -d --force-recreate agent-canvas
 ```
-
-Note: login tokens live in the container filesystem — lost on `recreate`. Prefer `CURSOR_API_KEY` for servers.
-
-### Canvas UI
-
-1. **Manage Backends** → add **Cursor** (ACP)
-   - **Command:** `/home/openhands/.local/bin/agent` (not bare `agent`)
-   - **Args:** `acp`
-2. **Settings** → default provider = that Cursor backend
-3. New conversation → test message
-
-Docs: [Cursor CLI ACP](https://cursor.com/docs/cli/acp)
-
-## GitHub Copilot
-
-Same pattern if your `copilot` build supports `acp`:
-
-```bash
-copilot login
-copilot acp
-```
-
-Configure in Manage Backends: command + `acp` arg, stdio transport.
-
-## Team note
-
-For a shared VM, use a **service API key** in `/etc/pmm-agentic-flow/env`, not individual laptop logins.
-
-## After container recreate
-
-Re-run `bash scripts/setup-cursor-acp.sh` — the CLI is installed in the container image layer, not the Docker volume.

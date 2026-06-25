@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Runs before the official agent-canvas entrypoint — fixes volume permissions.
+# Runs before the official agent-canvas entrypoint — volume permissions + agent CLIs.
 set -euo pipefail
 
 OH=/home/openhands/.openhands
+LOCAL=/home/openhands/.local
 ENTRYPOINT="/opt/agent-canvas/entrypoint.sh"
+AGENT_BIN="$LOCAL/bin/agent"
+COPILOT_BIN="$LOCAL/bin/copilot"
 
 canvas_ids() {
   if id openhands >/dev/null 2>&1; then
@@ -13,30 +16,47 @@ canvas_ids() {
   fi
 }
 
-AGENT_BIN="/home/openhands/.local/bin/agent"
+run_as_openhands() {
+  if id openhands >/dev/null 2>&1; then
+    su -s /bin/bash openhands -c "$*"
+  else
+    bash -c "$*"
+  fi
+}
+
+fix_local_ownership() {
+  if [ -d "$LOCAL" ]; then
+    chown -R "${UID_NUM}:${GID_NUM}" "$LOCAL"
+  fi
+}
 
 install_cursor_cli() {
   if [ -x "$AGENT_BIN" ]; then
     echo "[entrypoint-wrapper] cursor CLI: $AGENT_BIN"
     return 0
   fi
-  if [ -z "${CURSOR_API_KEY:-}" ] && [ "${INSTALL_CURSOR_CLI:-1}" != "1" ]; then
-    echo "[entrypoint-wrapper] cursor CLI not installed (set CURSOR_API_KEY or INSTALL_CURSOR_CLI=1)"
-    return 0
-  fi
-  echo "[entrypoint-wrapper] installing cursor CLI (one-time per volume)..."
-  if id openhands >/dev/null 2>&1; then
-    su -s /bin/bash openhands -c 'curl -fsSL https://cursor.com/install | bash' || true
-  else
-    curl -fsSL https://cursor.com/install | bash || true
-  fi
-  if [ -d /home/openhands/.local ]; then
-    chown -R "${UID_NUM}:${GID_NUM}" /home/openhands/.local
-  fi
+  echo "[entrypoint-wrapper] installing cursor CLI..."
+  run_as_openhands 'curl -fsSL https://cursor.com/install | bash' || true
+  fix_local_ownership
   if [ -x "$AGENT_BIN" ]; then
     echo "[entrypoint-wrapper] cursor CLI installed: $($AGENT_BIN --version 2>/dev/null || echo ok)"
   else
-    echo "[entrypoint-wrapper] WARNING: cursor CLI install failed — ACP command 'agent' will not work" >&2
+    echo "[entrypoint-wrapper] WARNING: cursor CLI install failed" >&2
+  fi
+}
+
+install_copilot_cli() {
+  if [ -x "$COPILOT_BIN" ]; then
+    echo "[entrypoint-wrapper] copilot CLI: $COPILOT_BIN"
+    return 0
+  fi
+  echo "[entrypoint-wrapper] installing copilot CLI..."
+  run_as_openhands 'curl -fsSL https://gh.io/copilot-install | bash' || true
+  fix_local_ownership
+  if [ -x "$COPILOT_BIN" ]; then
+    echo "[entrypoint-wrapper] copilot CLI installed: $($COPILOT_BIN --version 2>/dev/null || echo ok)"
+  else
+    echo "[entrypoint-wrapper] WARNING: copilot CLI install failed" >&2
   fi
 }
 
@@ -49,13 +69,15 @@ mkdir -p \
   "$OH/automation" \
   "$OH/agent-canvas" \
   "$OH/agent-canvas/conversations" \
-  "$OH/agent-canvas/bash_events"
+  "$OH/agent-canvas/bash_events" \
+  "$LOCAL/bin"
 
 chown -R "${UID_NUM}:${GID_NUM}" "$OH"
 chmod -R u+rwX "$OH"
 touch "$OH/automation/.write-test" && rm -f "$OH/automation/.write-test"
 
 install_cursor_cli
+install_copilot_cli
 
 if [ ! -x "$ENTRYPOINT" ]; then
   echo "ERROR: $ENTRYPOINT not found" >&2
