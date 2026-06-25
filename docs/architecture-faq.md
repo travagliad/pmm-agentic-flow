@@ -8,15 +8,13 @@ Não estás errado. A doc OpenHands usa **`tmux`** para manter o `agent-canvas` 
 
 É o equivalente Linux/server do que eles sugerem com tmux. O comando é o mesmo: `agent-canvas --public`.
 
-## 2. Para que instalar Docker no host? Ainda é usado?
+## 2. Docker no host?
 
-**Sim, mas só para sandboxes** — não para o Canvas nem o orchestrator.
+**Não** — no modelo atual não instalamos Docker nem no control plane nem nos runners.
 
-Agent Canvas (modo Docker sandbox, [doc](https://docs.openhands.dev/openhands/usage/sandboxes/docker)) cria **um container Docker por chat/conversa**. Workers QA também usam um container **só para o PMM server** partilhado.
+Cada ticket recebe uma **VM Linode dedicada**. O Agent Canvas corre em processo no host (`agent-canvas --public`). O isolamento é a própria VM, não containers Docker por conversa.
 
-Sem Docker no host não há isolamento por conversa.
-
-## 3. O orchestrator não reinventa a roda? O OpenHands já não faz isto?
+## 3. O orchestrator não reinventa a roda?
 
 **OpenHands / Agent Canvas** faz:
 
@@ -28,8 +26,8 @@ Sem Docker no host não há isolamento por conversa.
 
 - Webhook Jira → transições PMM (`In Progress`, `In QA`, …)
 - Resolver imagens FB em `pmm-submodules`
-- Pool de workers Linode (`chats_per_worker`)
-- Comentários Jira com links de conversa, PMM, sandbox
+- Provisionar **um runner Linode por ticket** (`runner_per_chat`)
+- Comentários Jira com link do Canvas no runner
 - Prompts `/opsx:*` e `/loop:qa` por fase
 
 Não é substituto do Canvas — é **camada PMM** por cima. No futuro parte disto pode migrar para Canvas Automations, mas Jira + Linode + FB continuam custom.
@@ -48,17 +46,19 @@ Domínio estático gratuito: [ngrok dashboard → Domains](https://dashboard.ngr
 
 ## 5. Instalamos como eles ensinam?
 
-Sim — `deploy/install-host.sh` segue os passos oficiais:
+Sim — `deploy/install-runner.sh` segue os passos oficiais VM:
 
 ```bash
 apt-get install -y ca-certificates curl gnupg git
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
-curl -LsSf https://astral.sh/uv/install.sh | sh   # também no user agentcanvas
+curl -LsSf https://astral.sh/uv/install.sh | sh
 npm install -g @openhands/agent-canvas
 ```
 
-Extra nosso (necessário para o POC): Docker (sandboxes), Cursor CLI (ACP), nginx+ngrok (Terraform).
+Extra nosso: Cursor CLI (ACP), cloud-init via Linode API para runners efémeros.
+
+Control plane: `deploy/install-control-plane.sh` — Node + nginx + ngrok, sem Canvas.
 
 ## 6. Firewall como na doc deles
 
@@ -67,10 +67,7 @@ Com **ngrok** (default recomendado):
 | Porta | Linode firewall |
 |-------|-----------------|
 | 22 SSH | só `admin_cidrs` (o teu IP) |
-| 8000, 8080 | **fechadas** |
-| 443 | não precisa — ngrok é túnel de saída |
-
-Com `expose_ports_directly = true` (só dev): abre :8000 e :8080.
+| 8080 | **fechada** (ngrok) ou aberta com `expose_ports_directly` |
 
 ## 7. Legado
 

@@ -2,7 +2,7 @@
 
 linode_token            = "YOUR_LINODE_TOKEN"
 root_password           = "GENERATE_A_STRONG_PASSWORD"
-worker_root_password    = "GENERATE_A_DIFFERENT_PASSWORD_FOR_QA_WORKERS"
+worker_root_password    = "GENERATE_A_DIFFERENT_PASSWORD_FOR_RUNNERS"
 bootstrap_repo_url      = "https://github.com/travagliad/pmm-agentic-flow.git"
 
 # Canvas UI login + orchestrator→Canvas API (same value, two env names on VM)
@@ -18,7 +18,7 @@ github_copilot_token    = "gho_..."   # optional; defaults to github_token on VM
 cursor_api_key          = ""          # optional; Cursor ACP
 
 region                  = "eu-central"
-instance_type           = "g6-standard-4"   # control plane only — workers: config/stack.yaml
+instance_type           = "g6-standard-4"   # control plane — runners: config/stack.yaml
 admin_cidrs             = ["YOUR.PUBLIC.IP/32"]
 
 jira_base_url           = "https://your-org.atlassian.net"

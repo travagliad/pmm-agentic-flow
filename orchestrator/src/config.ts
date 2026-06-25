@@ -10,18 +10,15 @@ const repoSchema = z.object({
 
 const infrastructureSchema = z.object({
   linode: z.object({
-    control_plane_type: z.string().default("g6-standard-4"),
-    worker_type: z.string().default("g6-standard-8"),
+    runner_type: z.string().default("g6-standard-8"),
     region: z.string().default("eu-central"),
-    chats_per_worker: z.number().int().positive().default(3),
   }),
 });
 
 const stackConfigSchema = z.object({
   infrastructure: infrastructureSchema.default({
     linode: {
-      control_plane_type: "g6-standard-4",
-      worker_type: "g6-standard-8",
+      runner_type: "g6-standard-8",
       region: "eu-central",
     },
   }),
@@ -82,11 +79,13 @@ const stackConfigSchema = z.object({
     phases: z.array(z.string()),
   }),
   sandbox: z.object({
+    mode: z.enum(["runner_per_chat"]).default("runner_per_chat"),
     ttl_hours: z.number().default(72),
     keep_warm_until: z.string().default("ready_for_merge"),
-    workspace_layout: z.array(z.object({ path: z.string(), repo: z.string() })).optional(),
-    expose: z.array(z.string()).default(["vscode", "ssh", "preview"]),
+    workspace_root: z.string().default("/projects"),
     setup_script: z.string().default("sandbox/setup-pmm-workspace.sh"),
+    workspace_layout: z.array(z.object({ path: z.string(), repo: z.string() })).optional(),
+    expose: z.array(z.string()).optional(),
   }),
 });
 
@@ -222,10 +221,9 @@ export function loadJiraWorkflow(path: string): JiraWorkflowConfig {
   return jiraWorkflowSchema.parse(yaml.load(raw));
 }
 
-export function linodeWorkerSettings(stack: StackConfig) {
+export function linodeRunnerSettings(stack: StackConfig) {
   return stack.infrastructure.linode;
 }
 
-export function chatsPerWorker(stack: StackConfig): number {
-  return stack.infrastructure.linode.chats_per_worker;
-}
+/** @deprecated use linodeRunnerSettings */
+export const linodeWorkerSettings = linodeRunnerSettings;

@@ -2,7 +2,7 @@
 
 Single source on your PC: `terraform/terraform.tfvars` → cloud-init writes `/etc/pmm-agentic-flow/env` on the VM.
 
-Worker Linode size/region: **`config/stack.yaml`** only (not terraform).
+Runner Linode size/region: **`config/stack.yaml`** → `infrastructure.linode.runner_type` (not terraform).
 
 ---
 
@@ -10,9 +10,9 @@ Worker Linode size/region: **`config/stack.yaml`** only (not terraform).
 
 | Terraform var | VM env | Who uses it | Why |
 |---------------|--------|-------------|-----|
-| `linode_token` | `LINODE_TOKEN` | Orchestrator | Create/destroy QA worker Linodes |
+| `linode_token` | `LINODE_TOKEN` | Orchestrator | Create/destroy chat runner Linodes |
 | `root_password` | — | You (SSH) | Root login to control plane |
-| `worker_root_password` | — | Linode API | Root on QA worker VMs |
+| `worker_root_password` | — | Linode API | Root on ephemeral runner VMs |
 | `bootstrap_repo_url` | `BOOTSTRAP_REPO_URL` | cloud-init | Clone this repo |
 | `github_token` | `GITHUB_TOKEN` | Orchestrator + agents | Clone, PRs, FB resolver |
 | `agent_canvas_api_key` | `LOCAL_BACKEND_API_KEY`, `AGENT_CANVAS_API_KEY` | Browser + orchestrator | Canvas `--public` gate; orchestrator calls Canvas API |
@@ -31,7 +31,7 @@ Worker Linode size/region: **`config/stack.yaml`** only (not terraform).
 | `jira_api_token` | `JIRA_API_TOKEN` | empty | Jira REST auth |
 | `ngrok_authtoken` | `NGROK_AUTHTOKEN` | empty | ngrok tunnel (recommended prod) |
 | `ngrok_domain` | `NGROK_DOMAIN` | empty | Static HTTPS URL |
-| `expose_ports_directly` | `EXPOSE_PORTS_DIRECTLY` | `false` | Open :8000/:8080 on firewall (dev) |
+| `expose_ports_directly` | `EXPOSE_PORTS_DIRECTLY` | `false` | Open :8080 on firewall (dev) |
 | `data_volume_size` | — | `50` | GB block volume; `0` = off |
 
 ## Infrastructure (not secrets)
@@ -53,7 +53,7 @@ Worker Linode size/region: **`config/stack.yaml`** only (not terraform).
 | `jira_webhook_secret` | Merged into **`api_secret`** |
 | `openhands_api_key` | Duplicate of `agent_canvas_api_key` |
 | `openhands_version` | Unused |
-| `worker_linode_type` / `worker_linode_region` | Duplicated `config/stack.yaml` |
+| `worker_linode_type` / `worker_linode_region` | Use `config/stack.yaml` → `runner_type` |
 
 ## Keys you generate (PowerShell)
 

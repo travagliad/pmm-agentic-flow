@@ -96,21 +96,6 @@ export function buildApplyPrompt(
     .join("\n");
 }
 
-export function buildQaEnvironmentStartingNotice(ticket: TicketRecord): string {
-  return [
-    "Ticket moved to In QA.",
-    "",
-    "The orchestrator is provisioning a dedicated QA worker Linode with Jenkins FB images.",
-    "This takes ~10 minutes. You will receive the PMM URL in Jira when ready.",
-    "",
-    ticket.fbServerImage ? `FB server image: ${ticket.fbServerImage}` : "Resolving FB tags from pmm-submodules…",
-    "",
-    "When PMM is up, Playwright tests will start in this conversation automatically.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
 export function buildQaPrompt(ticket: TicketRecord, config: StackConfig, ctx: IssueContext): string {
   return [
     "/loop:qa",
@@ -121,13 +106,11 @@ export function buildQaPrompt(ticket: TicketRecord, config: StackConfig, ctx: Is
     `Change ID: ${ticket.changeId}`,
     `Phase: IN_QA`,
     "",
-    ticket.pmmServerUrl
-      ? `PMM FB instance (orchestrator): ${ticket.pmmServerUrl}`
-      : "PMM URL pending — check Jira comment.",
-    ticket.fbServerImage ? `Server image: ${ticket.fbServerImage}` : "",
+    ticket.fbServerImage ? `FB server image: ${ticket.fbServerImage}` : "FB server image pending — check Jira.",
+    ticket.fbClientImage ? `FB client image: ${ticket.fbClientImage}` : "",
     "",
-    "Use the FB PMM instance above — do NOT reprovision pmm-framework locally.",
-    "Clone/update pmm-qa in workspace if needed for test edits.",
+    "Use FB images from pmm-submodules for PMM testing context.",
+    "Clone/update pmm-qa in /projects/pmm-qa for test edits.",
     "",
     `Editable paths: ${config.qa.editable_paths.join(", ")}`,
     `Suite: ${config.qa.default_suite}`,
@@ -135,9 +118,9 @@ export function buildQaPrompt(ticket: TicketRecord, config: StackConfig, ctx: Is
     "",
     "Tasks:",
     "1. Map OpenSpec scenarios to Playwright tests in pmm-qa.",
-    "2. Run tests against PMM_SERVER_URL; collect trace/video/HTML report.",
+    "2. Run tests; collect trace/video/HTML report.",
     "3. Dev/QA loop if tests expose dev bugs: report in chat — do NOT patch pmm code.",
-    "4. Output JIRA_UPDATE with test_instance and artifact paths.",
+    "4. Output JIRA_UPDATE with artifact paths.",
     "",
     ctx.acceptanceCriteria ? `Acceptance criteria:\n${ctx.acceptanceCriteria}` : "",
   ]
@@ -158,7 +141,7 @@ export function buildFinalizePrompt(ticket: TicketRecord, config: StackConfig): 
     "2. Max 2 retries per flaky test; fail loudly otherwise.",
     "3. Open PR on percona/pmm-qa if tests were written.",
     "4. Run /opsx:archive for the change in pmm.",
-    "5. QA worker Linode will be destroyed by the orchestrator.",
+    "5. Chat runner Linode will be destroyed by the orchestrator.",
     "6. Output JIRA_UPDATE with qa_pr if applicable.",
     "",
     `QA suite: ${config.qa.default_suite}`,

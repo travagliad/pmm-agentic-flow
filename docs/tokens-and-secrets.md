@@ -26,7 +26,7 @@ Generate **three** values for `terraform.tfvars`:
 | **github_token** | Orchestrator, agents | Clone repos, PRs |
 | **github_copilot_token** | Copilot CLI | ACP (optional) |
 | **cursor_api_key** | Cursor CLI | ACP (optional) |
-| **linode_token** | Orchestrator | QA worker VMs |
+| **linode_token** | Orchestrator | Chat runner Linodes (one per ticket) |
 | **jira_api_token** | Orchestrator | Post comments to Jira |
 
 ## Public URL

@@ -2,7 +2,7 @@
 
 Everything runs on **Linode**. Your PC only runs `terraform apply`.
 
-See [architecture-faq.md](./architecture-faq.md) for systemd vs OpenHands tmux, Docker sandboxes, orchestrator role, ngrok, and what end users need.
+See [architecture-faq.md](./architecture-faq.md) for systemd vs OpenHands tmux, runner-per-chat model, orchestrator role, ngrok, and what end users need.
 
 ---
 
@@ -27,13 +27,14 @@ terraform output next_steps
 terraform output app_url
 ```
 
-Wait ~8 minutes for cloud-init (Node, uv, npm `agent-canvas`, systemd).
+Wait ~8 minutes for cloud-init (orchestrator + optional ngrok).
 
-### C. First login (users)
+### C. First ticket (users)
 
-1. Open `terraform output app_url`
-2. Enter `LOCAL_BACKEND_API_KEY` (= `agent_canvas_api_key` from tfvars)
-3. Settings → Agent → ACP: `/usr/local/bin/agent` + `acp` (if using Cursor)
+1. Move a Jira ticket to **Ready for Refinement** (or use simulate script)
+2. Orchestrator provisions a runner — **Canvas URL appears in Jira comments**
+3. Open the runner URL in browser; enter `agent_canvas_api_key` from tfvars
+4. Settings → Agent → ACP: `/usr/local/bin/agent` + `acp` (if using Cursor)
 
 No install required for dev/QA/PO — browser only.
 
@@ -55,11 +56,10 @@ bash ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Test"
 
 | Component | Where |
 |-----------|--------|
-| Agent Canvas (`npm`, systemd) | Linode |
-| Orchestrator (Node, systemd) | Linode |
-| Docker | Linode — **per-chat sandboxes** + PMM on QA workers |
+| Orchestrator (Node, systemd) | Control plane Linode |
+| Agent Canvas (`npm`, systemd) | One runner Linode per ticket |
 | Terraform | Your PC |
-| Users | Browser → `app_url` |
+| Users | Browser → runner URL from Jira |
 
 ---
 

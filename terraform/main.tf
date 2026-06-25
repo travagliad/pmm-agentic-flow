@@ -20,20 +20,20 @@ locals {
     for addr in sort(tolist(linode_instance.loop_host.ipv4)) : addr
     if !startswith(addr, "192.168.")
   ])
-  app_url      = local.use_ngrok ? var.ngrok_domain : "http://${local.public_ipv4}:8000/"
+  app_url      = local.use_ngrok ? var.ngrok_domain : "http://${local.public_ipv4}:8080/"
   jira_webhook = local.use_ngrok ? "${trim(var.ngrok_domain, "/")}/hooks/jira" : "http://${local.public_ipv4}:8080/hooks/jira"
   next_steps_ngrok = <<-EOT
-    1. Wait ~8 min for cloud-init (npm install + Agent Canvas)
-    2. Open: ${var.ngrok_domain}
-    3. Enter LOCAL_BACKEND_API_KEY from terraform.tfvars (agent_canvas_api_key)
-    4. Jira webhook: ${trim(var.ngrok_domain, "/")}/hooks/jira
-    5. SSH (admin only): ssh root@${local.public_ipv4}
+    1. Wait ~8 min for cloud-init (orchestrator + ngrok)
+    2. Jira webhook: ${trim(var.ngrok_domain, "/")}/hooks/jira
+    3. Chat runners: orchestrator provisions one Linode per ticket — links posted in Jira
+    4. SSH (admin only): ssh root@${local.public_ipv4}
   EOT
   next_steps_direct = <<-EOT
     1. Wait ~8 min for cloud-init
-    2. Open: http://${local.public_ipv4}:8000/
-    3. Set ngrok_domain + ngrok_authtoken in tfvars for a stable public URL
-    4. Jira webhook: http://${local.public_ipv4}:8080/hooks/jira
+    2. Orchestrator: http://${local.public_ipv4}:8080/
+    3. Jira webhook: http://${local.public_ipv4}:8080/hooks/jira
+    4. Chat runners: one Linode per ticket — Canvas URL in Jira comments
+    5. Set ngrok_domain + ngrok_authtoken for a stable public webhook URL
   EOT
   next_steps = local.use_ngrok ? local.next_steps_ngrok : local.next_steps_direct
 }
@@ -88,17 +88,6 @@ resource "linode_firewall" "loop" {
     ports    = "22"
     ipv4     = var.admin_cidrs
     ipv6     = var.admin_cidrs_v6
-  }
-
-  dynamic "inbound" {
-    for_each = local.expose_ports_directly ? [1] : []
-    content {
-      label    = "allow-agent-canvas"
-      action   = "ACCEPT"
-      protocol = "TCP"
-      ports    = "8000"
-      ipv4     = ["0.0.0.0/0"]
-    }
   }
 
   dynamic "inbound" {

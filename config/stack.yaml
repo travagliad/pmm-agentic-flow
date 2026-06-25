@@ -3,10 +3,8 @@
 
 infrastructure:
   linode:
-    control_plane_type: g6-standard-4
-    worker_type: g6-standard-8
+    runner_type: g6-standard-8
     region: eu-central
-    chats_per_worker: 3
 
 dev:
   repository: percona/pmm
@@ -75,18 +73,11 @@ lifecycle:
     - ready_for_merge
 
 sandbox:
+  mode: runner_per_chat
   ttl_hours: 72
   keep_warm_until: ready_for_merge
   setup_script: sandbox/setup-pmm-workspace.sh
-  workspace_layout:
-    - path: /workspace/pmm
-      repo: percona/pmm
-    - path: /workspace/pmm-qa
-      repo: percona/pmm-qa
-  expose:
-    - vscode
-    - ssh
-    - preview
+  workspace_root: /projects
 
 metrics:
   enabled: true

@@ -16,17 +16,19 @@ export type TicketRecord = {
   changeId?: string;
   phase: TicketPhase;
   conversationId?: string;
-  qaConversationId?: string;
   specPrUrl?: string;
   devPrUrl?: string;
   qaPrUrl?: string;
   submodulesPr?: number;
   fbServerImage?: string;
   fbClientImage?: string;
+  runnerLinodeId?: number;
+  runnerIp?: string;
+  /** @deprecated migrated from worker pool */
   workerLinodeId?: number;
+  /** @deprecated migrated from worker pool */
   workerIp?: string;
   workerHostname?: string;
-  pmmServerUrl?: string;
   accessUrls: ExposedUrl[];
   buildIteration: number;
   createdAt: string;

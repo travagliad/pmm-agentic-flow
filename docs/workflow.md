@@ -1,8 +1,8 @@
 # Workflow — Jira statuses, OpenSpec commands, and agents
 
-**One ticket = one OpenHands conversation = one persistent sandbox** until Ready for Merge.
+**One ticket = one runner Linode = one OpenHands conversation** until Ready for Merge.
 
-Access links (PMM URL, VS Code, **SSH**) are posted when entering **In Progress** and **refreshed on In Review** so engineers can verify live before QA.
+Access links (Canvas URL, VS Code, SSH) are posted when entering **In Progress** and refreshed on **In Review**.
 
 ---
 
@@ -29,12 +29,13 @@ implement task chunk → make build → fix → rebuild → push
 
 `buildIteration` is tracked in `/workspace/.loop/state.json`. Max retries: `MAX_BUILD_RETRIES` (default 5).
 
-PMM env (`pmm-framework.py` / FB Docker) is provisioned **when entering In QA**, not during dev. Dev uses local `make build` on the control plane.
+PMM env (FB images from `pmm-submodules`) is resolved when entering **In QA**. Dev uses local `make build` on the runner.
 
 ```text
-In Progress → local make build (no PMM FB)
-In QA       → orchestrator creates QA worker Linode with Jenkins FB images
-Ready for Merge → worker destroyed
+Ready for Refinement → orchestrator provisions runner Linode + Agent Canvas
+In Progress          → same runner, local make build
+In QA                → same conversation; FB images in prompt
+Ready for Merge      → runner destroyed
 ```
 
 See [sandbox-lifecycle.md](./sandbox-lifecycle.md).

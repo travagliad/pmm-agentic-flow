@@ -17,7 +17,7 @@ variable "region" {
 variable "instance_type" {
   type        = string
   default     = "g6-standard-4"
-  description = "Control plane size (4GB). QA workers use worker_linode_type (8GB)."
+  description = "Control plane size (orchestrator only). Runners: config/stack.yaml runner_type."
 }
 
 variable "root_password" {
@@ -132,5 +132,5 @@ variable "data_volume_size" {
 variable "worker_root_password" {
   type        = string
   sensitive   = true
-  description = "Root password for ephemeral QA worker Linodes."
+  description = "Root password for ephemeral chat runner Linodes."
 }

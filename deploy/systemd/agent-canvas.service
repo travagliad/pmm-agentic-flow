@@ -1,20 +1,17 @@
 [Unit]
-Description=OpenHands Agent Canvas (npm on host)
+Description=OpenHands Agent Canvas on chat runner (process sandbox, no Docker)
 Documentation=https://docs.openhands.dev/openhands/usage/agent-canvas/backend-setup/vm
-After=network-online.target docker.service
-Wants=network-online.target
-Requires=docker.service
+After=network-online.target
 
 [Service]
 Type=simple
 User=agentcanvas
 Group=agentcanvas
-EnvironmentFile=-/etc/pmm-agentic-flow/env
-EnvironmentFile=-/etc/pmm-agentic-flow/worker.env
+EnvironmentFile=-/etc/pmm-agentic-flow/runner.env
 Environment=PORT=8000
 Environment=FILE_STORE=local
 Environment=LOCAL_STORAGE_PATH=/home/agentcanvas/.openhands/storage
-Environment=AUTOMATION_WORKSPACE_BASE=/home/agentcanvas/.openhands/workspaces
+Environment=AUTOMATION_WORKSPACE_BASE=/projects
 Environment=AUTOMATION_DB_URL=sqlite+aiosqlite:////home/agentcanvas/.openhands/automation/automations.db
 ExecStart=/usr/bin/agent-canvas --public --port 8000
 Restart=on-failure

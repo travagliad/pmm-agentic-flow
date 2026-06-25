@@ -1,47 +1,40 @@
 import type { Env, StackConfig } from "./config.js";
-import { chatsPerWorker, linodeWorkerSettings } from "./config.js";
-import type { FbArtifacts } from "./fb-resolver.js";
-import type { WorkerPoolRecord } from "./worker-store.js";
+import { linodeRunnerSettings } from "./config.js";
 
-export type WorkerRecord = {
+export type RunnerRecord = {
   linodeId: number;
   ip: string;
-  hostname: string;
-  pmmUrl: string;
   canvasBaseUrl: string;
   canvasPublicUrl: string;
 };
 
-export class LinodeWorkerClient {
+export class LinodeRunnerClient {
   private readonly region: string;
   private readonly type: string;
-  private readonly maxChats: number;
 
   constructor(
     private readonly env: Env,
     stack: StackConfig,
   ) {
-    const linode = linodeWorkerSettings(stack);
+    const linode = linodeRunnerSettings(stack);
     this.region = linode.region;
-    this.type = linode.worker_type;
-    this.maxChats = chatsPerWorker(stack);
+    this.type = linode.runner_type;
   }
 
   get enabled(): boolean {
     return Boolean(this.env.linodeToken);
   }
 
-  get chatsPerWorker(): number {
-    return this.maxChats;
-  }
-
-  async provisionQaWorker(ticketKey: string, fb: FbArtifacts): Promise<WorkerRecord> {
+  async provisionRunner(ticketKey: string): Promise<RunnerRecord> {
     if (!this.enabled) {
-      throw new Error("LINODE_TOKEN not set — cannot provision QA worker");
+      throw new Error("LINODE_TOKEN not set — cannot provision chat runner");
+    }
+    if (!this.env.workerRootPassword) {
+      throw new Error("WORKER_ROOT_PASSWORD required to create runner Linodes");
     }
 
-    const label = `qa-${ticketKey.toLowerCase()}`.slice(0, 32);
-    const userData = this.buildCloudInit(fb);
+    const label = `run-${ticketKey.toLowerCase()}`.slice(0, 32);
+    const userData = this.buildCloudInit(ticketKey);
 
     const res = await fetch("https://api.linode.com/v4/linode/instances", {
       method: "POST",
@@ -52,7 +45,7 @@ export class LinodeWorkerClient {
         type: this.type,
         image: "linode/ubuntu24.04",
         root_pass: this.env.workerRootPassword,
-        tags: ["agentic-flow", "qa-worker", ticketKey.toLowerCase()],
+        tags: ["agentic-flow", "chat-runner", ticketKey.toLowerCase()],
         metadata: { user_data: Buffer.from(userData).toString("base64") },
       }),
     });
@@ -61,34 +54,14 @@ export class LinodeWorkerClient {
       throw new Error(`Linode create failed (${res.status}): ${await res.text()}`);
     }
 
-    const created = (await res.json()) as { id: number; ipv4?: string[] };
+    const created = (await res.json()) as { id: number };
     const ip = await this.waitForIp(created.id);
-    const canvasBaseUrl = `http://${ip}:8000`;
-    const canvasPublicUrl = `http://${ip}:8000`;
-    const pmmUrl = `https://${ip}:8443/`;
 
     return {
       linodeId: created.id,
       ip,
-      hostname: ip,
-      pmmUrl,
-      canvasBaseUrl,
-      canvasPublicUrl,
-    };
-  }
-
-  toPoolRecord(worker: WorkerRecord, ticketKeys: string[]): WorkerPoolRecord {
-    return {
-      linodeId: worker.linodeId,
-      ip: worker.ip,
-      label: `qa-pool-${worker.linodeId}`,
-      canvasBaseUrl: worker.canvasBaseUrl,
-      canvasPublicUrl: worker.canvasPublicUrl,
-      pmmUrl: worker.pmmUrl,
-      ticketKeys,
-      maxChats: this.maxChats,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      canvasBaseUrl: `http://${ip}:8000`,
+      canvasPublicUrl: `http://${ip}:8000`,
     };
   }
 
@@ -118,21 +91,6 @@ export class LinodeWorkerClient {
     return false;
   }
 
-  async waitUntilPmmReady(ip: string, timeoutMs = 900_000): Promise<boolean> {
-    const started = Date.now();
-    const url = `https://${ip}:8443/`;
-    while (Date.now() - started < timeoutMs) {
-      try {
-        const res = await fetch(url, { method: "GET", signal: AbortSignal.timeout(8000) });
-        if (res.ok || res.status === 401 || res.status === 302) return true;
-      } catch {
-        // PMM still booting
-      }
-      await sleep(15_000);
-    }
-    return false;
-  }
-
   private async waitForIp(linodeId: number, timeoutMs = 300_000): Promise<string> {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
@@ -148,7 +106,7 @@ export class LinodeWorkerClient {
     throw new Error(`Timed out waiting for Linode ${linodeId} IP`);
   }
 
-  private buildCloudInit(fb: FbArtifacts): string {
+  private buildCloudInit(ticketKey: string): string {
     const secret = this.env.agentCanvasSecretKey ?? "";
     const copilot = this.env.githubCopilotToken ?? this.env.githubToken;
     const cursor = this.env.cursorApiKey ?? "";
@@ -162,10 +120,11 @@ packages:
   - curl
 
 write_files:
-  - path: /etc/pmm-agentic-flow/worker.env
+  - path: /etc/pmm-agentic-flow/runner.env
     permissions: "0600"
     content: |
-      AGENT_CANVAS_PUBLIC_URL=http://__WORKER_IP__:8000
+      TICKET_KEY=${ticketKey}
+      AGENT_CANVAS_PUBLIC_URL=http://__RUNNER_IP__:8000
       AGENT_CANVAS_VERSION=${version}
       LOCAL_BACKEND_API_KEY=${this.env.agentCanvasApiKey}
       AGENT_CANVAS_API_KEY=${this.env.agentCanvasApiKey}
@@ -174,13 +133,12 @@ write_files:
       GITHUB_TOKEN=${this.env.githubToken}
       GITHUB_COPILOT_TOKEN=${copilot}
       CURSOR_API_KEY=${cursor}
-      PMM_SERVER_IMAGE=${fb.serverImage}
       BOOTSTRAP_DEST=/opt/pmm-agentic-flow/src
 
 runcmd:
   - mkdir -p /opt/pmm-agentic-flow
   - git clone ${this.env.bootstrapRepoUrl} /opt/pmm-agentic-flow/src
-  - bash /opt/pmm-agentic-flow/src/deploy/bootstrap-worker.sh 2>&1 | tee /var/log/pmm-agentic-flow-worker-bootstrap.log
+  - bash /opt/pmm-agentic-flow/src/deploy/bootstrap-runner.sh 2>&1 | tee /var/log/pmm-agentic-flow-runner-bootstrap.log
 `;
   }
 

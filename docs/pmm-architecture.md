@@ -4,22 +4,21 @@ This repo is the **orchestration platform** (Linode + Agent Canvas + orchestrato
 
 Product and QA code stay in their own repositories. The loop coordinates agents, sandboxes, and Jira status transitions.
 
-## What runs on Linode (always on)
+## What runs on Linode
 
 ```text
-terraform apply  →  cloud-init
-  ├── Agent Canvas   → http://<ip>:8000  (npm + systemd on host)
-  ├── Orchestrator   → http://<ip>:8080  (Node + systemd)
-  └── Docker Engine  → per-chat sandboxes only (not the stack itself)
+terraform apply  →  cloud-init (control plane)
+  └── Orchestrator   → http://<ip>:8080  (Node + systemd)
+
+Jira transition  →  orchestrator provisions runner Linode per ticket
+  └── Agent Canvas → http://<runner-ip>:8000  (npm + systemd, no Docker)
 ```
 
-Secrets: `terraform/terraform.tfvars` on your PC → `/etc/pmm-agentic-flow/env` on the VM.
+Secrets: `terraform/terraform.tfvars` on your PC → `/etc/pmm-agentic-flow/env` on the control plane (and runner env via cloud-init).
 
 See [agent-canvas.md](./agent-canvas.md) and [deploy-linode.md](./deploy-linode.md).
 
-**Dev:** one conversation per ticket on the control plane; each turn runs in a Docker sandbox container.
-
-**QA:** worker VMs run npm Agent Canvas + shared PMM container; up to `chats_per_worker` tickets share a worker; each QA chat gets its own Docker sandbox.
+**Dev + QA:** one conversation per ticket on a **dedicated runner VM**. The VM is the sandbox — no Docker containers per chat.
 
 ## Repos involved
 
