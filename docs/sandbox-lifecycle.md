@@ -30,4 +30,16 @@ export ORCHESTRATOR_BASE_URL=http://<ip>:8080/orchestrator
 ./scripts/simulate-transition.sh PMM-15083 "In Progress"
 ```
 
-Optional LLM CLIs: `bash scripts/install-agent-clis.sh` — not required for the UI.
+## LLM — UI abre sem isso, mas chat precisa de backend
+
+| O quê | UI abre? | Agente responde? |
+|-------|----------|------------------|
+| Só docker compose up | Sim | **Não** — falta provider |
+| API key Anthropic/OpenAI no Canvas Settings | Sim | Sim |
+| Cursor `agent acp` / Copilot `copilot acp` | Sim | Sim (via Manage Backends) |
+
+**Não vai no Terraform** — credencial pessoal, configuras depois no Canvas.
+
+Instalação opcional dos CLIs: `bash scripts/install-agent-clis.sh`
+
+Alternativa mais rápida para POC: Settings → colar API key Anthropic ou OpenAI (sem instalar nada no servidor).

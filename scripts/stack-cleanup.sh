@@ -12,6 +12,9 @@ for name in "${LEGACY[@]}"; do
   docker rm -f "$name" 2>/dev/null && echo "  removed $name" || true
 done
 
+# Any leftover caddy from old compose project names
+docker ps -aq --filter name=caddy | xargs -r docker rm -f 2>/dev/null || true
+
 DEST="${DEST:-/opt/pmm-agentic-flow/src}"
 if [ -f "$DEST/deploy/docker-compose.yml" ]; then
   echo "==> docker compose down --remove-orphans"
