@@ -56,6 +56,7 @@ write_files:
         exit 1
       fi
       bash "$DEST/deploy/bootstrap-host.sh" 2>&1 | tee -a /var/log/pmm-agentic-flow-bootstrap.log
+      exit "${PIPESTATUS[0]}"
 
 runcmd:
   - ufw allow OpenSSH
