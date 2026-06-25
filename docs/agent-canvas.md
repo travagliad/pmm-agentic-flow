@@ -1,6 +1,6 @@
 # Agent Canvas
 
-Agent Canvas runs on **chat runner VMs** (`:8000`), not on the control plane.
+Agent Canvas runs on the **control plane** (`:8000`, ngrok) and on **chat runner VMs** (`:8000` per ticket). Workflow dispatch uses the runner today; control plane Canvas is for manual access. See [architecture-target.md](./architecture-target.md).
 
 Install follows [OpenHands VM / Self-Hosted](https://docs.openhands.dev/openhands/usage/agent-canvas/backend-setup/vm) via `deploy/install-runner.sh` + `deploy/bootstrap-runner.sh`.
 

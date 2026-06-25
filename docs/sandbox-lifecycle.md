@@ -1,13 +1,16 @@
 # Sandbox lifecycle
 
-## Control plane (orchestrator only)
+## Control plane (orchestrator + Canvas UI)
 
 | Service | Port | URL |
 |---------|------|-----|
+| `agent-canvas` (systemd) | 8000 | `https://<ngrok-domain>/` or `http://<ip>:8000/` |
 | `orchestrator` (systemd) | 8080 | http://\<ip\>:8080/hooks/jira |
-| nginx + ngrok (optional) | 8787 → HTTPS | stable webhook + ingress |
+| nginx + ngrok (optional) | 8787 → HTTPS | stable webhook + Canvas ingress |
 
-The control plane runs **only the orchestrator** (Node + systemd). No Agent Canvas, no Docker.
+The control plane runs **orchestrator + Agent Canvas** (Node + npm + systemd). No Docker on the host.
+
+Workflow prompts (`/opsx:*`, `/loop:qa`) still go to the **per-ticket runner** Canvas today — control plane Canvas is for manual UI access via ngrok. See [llm-acp.md](./llm-acp.md#architecture-control-plane-vs-runner-chat) and [architecture-target.md](./architecture-target.md).
 
 ## Chat runners (one Linode per ticket)
 

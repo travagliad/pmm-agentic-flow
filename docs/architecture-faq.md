@@ -58,7 +58,7 @@ npm install -g @openhands/agent-canvas
 
 Extra nosso: Cursor CLI (ACP), cloud-init via Linode API para runners efémeros.
 
-Control plane: `deploy/install-control-plane.sh` — Node + nginx + ngrok, sem Canvas.
+Control plane: `deploy/install-control-plane.sh` — Node + Agent Canvas + nginx + ngrok (UI manual; workflow ainda vai ao runner).
 
 ## 6. Firewall como na doc deles
 
