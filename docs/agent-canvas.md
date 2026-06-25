@@ -36,6 +36,21 @@ cd deploy && docker compose --env-file ../.env up -d --force-recreate agent-canv
 
 On a **4GB** Linode, a long conversation or ACP subprocess can stall the agent-server until restart. Check `free -h` and `dmesg | grep -i kill` for OOM.
 
+### Overnight / hung :18000 (health logs stop)
+
+When `docker logs` only shows old `GET /health` lines and nothing recent, the agent-server is **stuck** — the browser shows `signal timed out`.
+
+```bash
+bash scripts/restart-agent-canvas.sh
+```
+
+Auto-recover every 5 minutes (on the Linode):
+
+```bash
+chmod +x /opt/pmm-agentic-flow/src/scripts/agent-canvas-watchdog.sh
+( crontab -l 2>/dev/null; echo '*/5 * * * * /opt/pmm-agentic-flow/src/scripts/agent-canvas-watchdog.sh >> /var/log/agent-canvas-watchdog.log 2>&1' ) | crontab -
+```
+
 Do **not** add a separate backend URL in Manage Backends when using the full stack on the same VM — just enter `AGENT_CANVAS_API_KEY` when prompted. The built-in Local backend uses the internal proxy.
 
 Ensure `AGENT_CANVAS_PUBLIC_URL` in env matches how you open the site (e.g. `http://139.162.150.187:8000`).
