@@ -9,6 +9,8 @@ set -a
 # shellcheck source=/dev/null
 source "$ENV_FILE"
 set +a
+export HOME="${HOME:-/root}"
+export DEBIAN_FRONTEND=noninteractive
 
 PUBLIC_IP="$(curl -4 -fsSL https://ifconfig.me/ip 2>/dev/null || curl -4 -fsSL https://ipv4.icanhazip.com)"
 sed -i "s|__PUBLIC_IP__|$PUBLIC_IP|g" "$ENV_FILE"

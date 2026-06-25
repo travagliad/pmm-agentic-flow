@@ -3,17 +3,21 @@
 # https://docs.openhands.dev/openhands/usage/agent-canvas/backend-setup/vm
 set -euo pipefail
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+APT_INSTALL=(apt-get install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
+
 AGENT_USER="${AGENT_USER:-agentcanvas}"
 AGENT_HOME="/home/${AGENT_USER}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 apt-get update
-apt-get install -y ca-certificates curl gnupg git jq
+"${APT_INSTALL[@]}" ca-certificates curl gnupg git jq
 
 echo "[install-runner] Node.js 22.x from NodeSource"
 if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 22 ? 1 : 0)'; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-  apt-get install -y nodejs
+  "${APT_INSTALL[@]}" nodejs
 fi
 
 if ! id "$AGENT_USER" >/dev/null 2>&1; then

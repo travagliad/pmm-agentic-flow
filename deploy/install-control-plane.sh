@@ -2,14 +2,18 @@
 # Control plane: Node.js for orchestrator build only (no Agent Canvas, no Docker).
 set -euo pipefail
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+APT_INSTALL=(apt-get install -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
+
 echo "[install-control-plane] apt packages"
 apt-get update
-apt-get install -y ca-certificates curl gnupg git jq nginx
+"${APT_INSTALL[@]}" ca-certificates curl gnupg git jq nginx
 
 echo "[install-control-plane] Node.js 22.x"
 if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 22 ? 1 : 0)'; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-  apt-get install -y nodejs
+  "${APT_INSTALL[@]}" nodejs
 fi
 
 if [ -n "${NGROK_AUTHTOKEN:-}" ]; then
@@ -17,8 +21,9 @@ if [ -n "${NGROK_AUTHTOKEN:-}" ]; then
   curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
   echo "deb https://ngrok-agent.s3.amazonaws.com buster main" > /etc/apt/sources.list.d/ngrok.list
   apt-get update
-  apt-get install -y ngrok
-  ngrok config add-authtoken "$NGROK_AUTHTOKEN"
+  "${APT_INSTALL[@]}" ngrok
+  mkdir -p /root/.config/ngrok
+  HOME=/root ngrok config add-authtoken "$NGROK_AUTHTOKEN"
 fi
 
 mkdir -p /var/lib/pmm-agentic-flow/orchestrator
