@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Fix Agent Canvas volume ownership (uid 1000). Safe to re-run.
+# Fix Agent Canvas volume ownership to match the openhands user in the image.
 set -euo pipefail
 
-UID_NUM="${1:-${AGENT_CANVAS_UID:-1000}}"
+IMAGE="${AGENT_CANVAS_IMAGE:-ghcr.io/openhands/agent-canvas:${AGENT_CANVAS_VERSION:-latest}}"
 
 fix_volume() {
   local vol="$1"
@@ -10,17 +10,32 @@ fix_volume() {
     echo "skip (missing): $vol"
     return 0
   fi
-  echo "fix $vol → uid ${UID_NUM}"
-  docker run --rm -v "${vol}:/data" alpine:3.21 sh -c "
-    set -e
-    mkdir -p /data/storage /data/workspaces /data/automation /data/agent-canvas
-    chown -R ${UID_NUM}:${UID_NUM} /data
-    chmod -R u+rwX /data
-  "
-  docker run --rm -u "${UID_NUM}:${UID_NUM}" -v "${vol}:/oh" alpine:3.21 sh -c "
-    touch /oh/automation/.write-test && rm /oh/automation/.write-test
-    echo '  write test OK on $vol'
-  "
+  echo "fix $vol → openhands uid from $IMAGE"
+  docker run --rm --user 0:0 --entrypoint /bin/sh \
+    -v "${vol}:/home/openhands/.openhands" \
+    "$IMAGE" \
+    -ec '
+      OHUID=$(id -u openhands)
+      OHGID=$(id -g openhands)
+      mkdir -p \
+        /home/openhands/.openhands/storage \
+        /home/openhands/.openhands/workspaces \
+        /home/openhands/.openhands/automation \
+        /home/openhands/.openhands/agent-canvas \
+        /home/openhands/.openhands/agent-canvas/conversations \
+        /home/openhands/.openhands/agent-canvas/bash_events
+      chown -R "$OHUID:$OHGID" /home/openhands/.openhands
+      chmod -R u+rwX /home/openhands/.openhands
+      echo "  chown OK uid=$OHUID gid=$OHGID"
+    '
+  docker run --rm --user openhands --entrypoint /bin/sh \
+    -v "${vol}:/home/openhands/.openhands" \
+    "$IMAGE" \
+    -ec '
+      touch /home/openhands/.openhands/agent-canvas/conversations/.write-test
+      rm -f /home/openhands/.openhands/agent-canvas/conversations/.write-test
+      echo "  write test OK on '"$vol"'"
+    '
 }
 
 for vol in agentic-flow_agent-canvas-state agentic-flow_agent-canvas-projects \
@@ -28,4 +43,4 @@ for vol in agentic-flow_agent-canvas-state agentic-flow_agent-canvas-projects \
   fix_volume "$vol"
 done
 
-echo "Done. If SQLite still fails, run: bash scripts/reset-agent-canvas.sh"
+echo "Done. Restart: docker compose --env-file .env -f deploy/docker-compose.yml up -d --force-recreate agent-canvas"

@@ -2,25 +2,26 @@ name: agentic-flow
 
 services:
   agent-canvas-init:
-    image: alpine:3.21
+    image: ghcr.io/openhands/agent-canvas:${AGENT_CANVAS_VERSION:-latest}
     user: "0:0"
-    environment:
-      CANVAS_UID: ${AGENT_CANVAS_UID:-1000}
-    volumes:
-      - agent-canvas-state:/home/openhands/.openhands
+    entrypoint: ["/bin/sh", "-ec"]
     command:
-      - sh
-      - -ec
       - |
+        OHUID=$$(id -u openhands)
+        OHGID=$$(id -g openhands)
         mkdir -p /home/openhands/.openhands/storage \
                  /home/openhands/.openhands/workspaces \
                  /home/openhands/.openhands/automation \
-                 /home/openhands/.openhands/agent-canvas
-        chown -R "$${CANVAS_UID}:$${CANVAS_UID}" /home/openhands/.openhands
+                 /home/openhands/.openhands/agent-canvas \
+                 /home/openhands/.openhands/agent-canvas/conversations \
+                 /home/openhands/.openhands/agent-canvas/bash_events
+        chown -R "$$OHUID:$$OHGID" /home/openhands/.openhands
         chmod -R u+rwX /home/openhands/.openhands
         touch /home/openhands/.openhands/automation/.write-test
         rm -f /home/openhands/.openhands/automation/.write-test
-        echo "volume ready for uid $${CANVAS_UID}"
+        echo "volume ready for openhands uid $$OHUID"
+    volumes:
+      - agent-canvas-state:/home/openhands/.openhands
     restart: "no"
 
   agent-canvas:

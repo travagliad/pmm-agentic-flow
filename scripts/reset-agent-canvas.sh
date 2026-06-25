@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$ROOT/.env}"
-UID_NUM="${AGENT_CANVAS_UID:-1000}"
+IMAGE="${AGENT_CANVAS_IMAGE:-ghcr.io/openhands/agent-canvas:${AGENT_CANVAS_VERSION:-latest}}"
 COMPOSE="docker compose --env-file $ENV_FILE -f $ROOT/deploy/docker-compose.yml"
 VOL="agentic-flow_agent-canvas-state"
 
@@ -24,15 +24,18 @@ if docker volume inspect "$VOL" >/dev/null 2>&1; then
   docker volume rm "$VOL"
 fi
 
-echo "==> Initializing fresh volume (uid $UID_NUM)..."
+echo "==> Initializing fresh volume (openhands uid from image)..."
 $COMPOSE run --rm --no-TTY agent-canvas-init
 
-echo "==> Verifying write access as uid $UID_NUM..."
-docker run --rm -u "${UID_NUM}:${UID_NUM}" -v "${VOL}:/oh" alpine:3.21 sh -c '
-  mkdir -p /oh/automation /oh/storage /oh/workspaces /oh/agent-canvas
-  touch /oh/automation/automations.db.test && rm -f /oh/automation/automations.db.test
-  echo "volume write OK"
-'
+echo "==> Verifying write access as openhands..."
+docker run --rm --user openhands --entrypoint /bin/sh \
+  -v "${VOL}:/home/openhands/.openhands" \
+  "$IMAGE" \
+  -ec '
+    touch /home/openhands/.openhands/agent-canvas/conversations/.write-test
+    rm -f /home/openhands/.openhands/agent-canvas/conversations/.write-test
+    echo "volume write OK"
+  '
 
 echo "==> Starting agent-canvas..."
 $COMPOSE up -d --force-recreate agent-canvas
