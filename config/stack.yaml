@@ -3,7 +3,7 @@
 
 infrastructure:
   linode:
-    runner_type: g6-standard-8
+    runner_type: g6-standard-6
     region: eu-central
 
 dev:

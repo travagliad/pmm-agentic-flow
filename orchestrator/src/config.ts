@@ -10,7 +10,7 @@ const repoSchema = z.object({
 
 const infrastructureSchema = z.object({
   linode: z.object({
-    runner_type: z.string().default("g6-standard-8"),
+    runner_type: z.string().default("g6-standard-6"),
     region: z.string().default("eu-central"),
   }),
 });
@@ -18,7 +18,7 @@ const infrastructureSchema = z.object({
 const stackConfigSchema = z.object({
   infrastructure: infrastructureSchema.default({
     linode: {
-      runner_type: "g6-standard-8",
+      runner_type: "g6-standard-6",
       region: "eu-central",
     },
   }),
