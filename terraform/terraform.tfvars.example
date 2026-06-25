@@ -1,20 +1,17 @@
 linode_token            = "YOUR_LINODE_TOKEN"
 root_password           = "GENERATE_A_STRONG_PASSWORD"
-# domain — leave empty: auto → pmmagents.<your-ip-dashes>.sslip.io
-# domain_prefix         = "pmmagents"   # optional; only used when domain is empty
-acme_email              = "you@example.com"
+worker_root_password    = "GENERATE_A_DIFFERENT_PASSWORD_FOR_QA_WORKERS"
 bootstrap_repo_url      = "https://github.com/travagliad/pmm-agentic-flow.git"
 github_token            = "ghp_..."
-github_copilot_token    = "gho_..."
-litellm_master_key      = "sk-litellm-change-me"
-litellm_model           = "github/gpt-4.1"
 agent_canvas_api_key    = "canvas-api-key-change-me"
 agent_canvas_secret_key = "canvas-secret-change-me"
 orchestrator_api_key    = "orch-change-me"
 region                  = "eu-central"
-instance_type           = "g6-dedicated-8"
+instance_type           = "g6-standard-4"
+worker_linode_type      = "g6-standard-8"
+worker_linode_region    = "eu-central"
 admin_cidrs             = ["0.0.0.0/0"]
-admin_cidrs_v6          = ["2001:8a0:e0c8:6000:e43f:cea0:1f37:460/128"]
+admin_cidrs_v6          = ["::/0"]
 jira_base_url           = "https://your-org.atlassian.net"
 jira_email              = "you@example.com"
 jira_api_token          = ""

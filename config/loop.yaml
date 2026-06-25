@@ -68,6 +68,11 @@ sandbox:
   ttl_hours: 72
   keep_warm_until: ready_for_merge
   setup_script: sandbox/setup-pmm-workspace.sh
+  worker:
+    provider: linode
+    region: eu-central
+    type: g6-standard-8
+    destroy_on_ready_for_merge: true
   workspace_layout:
     - path: /workspace/pmm
       repo: percona/pmm

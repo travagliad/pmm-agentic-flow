@@ -41,8 +41,7 @@ docker rm pmm-server   # optional
 - [ ] **GitHub:** push `pmm-agentic-flow` to a repo you control  
   Example: `https://github.com/travagliad/pmm-agentic-flow.git`
 - [ ] **Linode:** account + [API token](https://cloud.linode.com/profile/tokens) (read/write Linodes + Firewalls)
-- [ ] **Domain:** subdomain OR use free [sslip.io](https://sslip.io) — see [tokens-and-secrets.md](./tokens-and-secrets.md#no-custom-domain)
-- [ ] **Secrets:** GitHub PAT (`repo`), Copilot/LiteLLM token, random keys for `litellm_master_key`, `openhands_api_key`, `orchestrator_api_key`
+- [ ] **Secrets:** GitHub PAT (`repo`), random keys for `agent_canvas_api_key`, `agent_canvas_secret_key`, `orchestrator_api_key` — see [tokens-and-secrets.md](./tokens-and-secrets.md)
 - [ ] **Terraform** installed on PC: [terraform.io/downloads](https://developer.hashicorp.com/terraform/install)
 
 ### B. Deploy the server (your PC → creates Linode)

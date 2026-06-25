@@ -1,114 +1,72 @@
-# Tokens, secrets, and filling `terraform.tfvars`
+# Secrets and API keys
 
-No custom domain? See [No domain (sslip.io)](#no-custom-domain) below.
-
----
-
-## Links to generate tokens
-
-| What | Where | Notes |
-|------|-------|-------|
-| **Linode API token** | https://cloud.linode.com/profile/tokens | Create token → Read/Write for Linodes + Firewalls |
-| **GitHub PAT** (clone private repos, PRs) | https://github.com/settings/tokens | Classic token → scopes: `repo` |
-| **GitHub CLI login** (optional, for `gh auth token`) | https://cli.github.com/ | Run `gh auth login` in terminal |
-| **Copilot / LLM token** | Use output of `gh auth token` after login, or a PAT with Copilot access | Goes in `github_copilot_token` |
-| **Jira API token** (optional for now) | https://id.atlassian.com/manage-profile/security/api-tokens | Only if posting comments to Jira |
-| **Your public IP** (SSH firewall only) | https://ifconfig.me or https://ifconfig.io | IPv4 → `/32`; IPv6 → `/128`. POC: use `0.0.0.0/0` and `::/0` |
-
-Generate random strings locally (PowerShell):
+## Generate random keys (PowerShell)
 
 ```powershell
-# orchestrator_api_key, openhands_api_key, litellm_master_key, jira_webhook_secret
 -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
 ```
 
-Run three times for three different keys.
+Run three times: `agent_canvas_api_key`, `agent_canvas_secret_key`, `orchestrator_api_key`.
 
----
+## What each key does
 
-## No custom domain (default)
+| Key | Who uses it | Purpose |
+|-----|-------------|---------|
+| **AGENT_CANVAS_API_KEY** | You (browser) + orchestrator | Protects the Agent Canvas UI/API when exposed on the internet. Enter once in the Canvas login/settings. Orchestrator sends it when creating conversations. |
+| **AGENT_CANVAS_SECRET_KEY** | Agent Canvas only | Encrypts secrets the Canvas stores on disk (provider tokens, settings). Not sent on every request — set once at deploy. |
+| **ORCHESTRATOR_API_KEY** | You (scripts) + Jira webhook | Protects `/loop/api/*` and validates `x-api-key` on manual transitions. Jira Automation sends the same value in `x-webhook-secret` (or configure header to match). |
+| **GITHUB_TOKEN** | Orchestrator + agents | Clone repos, search pmm-submodules PRs, open PRs. |
+| **LINODE_TOKEN** | Orchestrator | Create/delete ephemeral QA worker VMs. Same token as Terraform, or a scoped sub-token. |
+| **JIRA_API_TOKEN** | Orchestrator | Post comments (conversation link, PMM URL) to tickets. |
 
-Leave **`domain` empty** in `terraform.tfvars`. Terraform auto-computes:
+## Public URL
+
+POC uses **bare Linode IP + HTTPS**:
 
 ```text
-pmmagents.<linode-ip-with-dashes>.sslip.io
+https://139.162.150.187/
 ```
 
-Example: IP `139.162.150.187` → **`https://pmmagents.139-162-150-187.sslip.io/`**
+Caddy terminates TLS with a **self-signed cert** (`tls internal`). Accept the browser warning on first visit.
 
-- No DNS registration, no two-step apply, no manual IP→hostname math
-- Everyone uses the same **prefix** (`pmmagents`); only the IP segment changes per VM
-- Override prefix: `domain_prefix = "pmmagents"` (default)
-- Override full hostname: `domain = "loop.example.com"` (requires your own A record)
+Bootstrap sets `AGENT_CANVAS_PUBLIC_URL=https://<ip>` automatically. No sslip.io, no custom domain until you want one.
 
-On the Linode, recover script and `scripts/loop-domain.sh` use the same formula.
+## Token links
 
-**Note:** bare `pmmagents.sslip.io` (without the IP segment) does **not** resolve via sslip.io magic DNS — sslip.io needs the IP embedded in the hostname unless you own a real domain and add an A record.
+| What | Where |
+|------|-------|
+| Linode API token | https://cloud.linode.com/profile/tokens |
+| GitHub PAT | https://github.com/settings/tokens (`repo` scope) |
+| Jira API token | https://id.atlassian.com/manage-profile/security/api-tokens |
 
-## Example `terraform.tfvars` (fill yours — do not commit this file)
+## LLM providers (no LiteLLM)
 
-Copy from `terraform.tfvars.example`. **Never commit `terraform.tfvars`** (secrets).
+This stack does **not** run LiteLLM. Configure models in **Agent Canvas → Manage Backends**:
 
-```hcl
-linode_token           = "PASTE from cloud.linode.com/profile/tokens"
-root_password          = "Pick a strong password for ssh root@linode"
-domain                 = ""   # empty = auto pmmagents.<ip-dashes>.sslip.io
-acme_email             = "your.email@example.com"    # any real email (Let's Encrypt)
-bootstrap_repo_url     = "https://github.com/travagliad/pmm-agentic-flow.git"
+- **GitHub Copilot:** use Copilot CLI with `--acp` (Agent Client Protocol) — Canvas talks to it directly.
+- **Cursor:** there is no first-class “paste Cursor API token” backend in Agent Canvas today. Options: use Copilot/Anthropic/OpenAI via ACP or OpenAI-compatible API; run Cursor IDE locally for your own sessions; or wire [Cursor Cloud Agents API](https://cursor.com/docs) separately if you build a custom backend adapter.
 
-github_token           = "ghp_..."                    # github.com/settings/tokens
-github_copilot_token   = "gho_..."                    # gh auth token
+## Team deployment (not POC)
 
-litellm_master_key     = "random-string-1"
-litellm_model          = "github/gpt-4.1"
-openhands_api_key      = "random-string-2"
-orchestrator_api_key   = "random-string-3"
+For a shared team setup, use **service accounts**, not personal tokens:
 
-region                 = "eu-central"
-instance_type          = "g6-dedicated-8"
-admin_cidrs            = ["0.0.0.0/0"]               # POC: open SSH; tighten later to YOUR.IP/32
+| Service | POC (you) | Team |
+|---------|-----------|------|
+| GitHub | Your PAT | Machine user / GitHub App with org install |
+| Jira | Your API token | Bot/service account + scoped API token |
+| Linode | Your token | Project-scoped token or separate sub-account |
+| LLM | Your Copilot/Cursor | Org subscription + dedicated credentials |
 
-# Optional — leave empty until Jira is wired
-jira_base_url          = ""
-jira_email             = ""
-jira_api_token         = ""
-jira_webhook_secret    = "random-string-4"
-```
+Personal tokens work for a solo POC; production needs identities that survive people leaving the team.
 
----
+## Example `terraform.tfvars`
 
-## What each field is for
+Copy from `terraform.tfvars.example`. **Never commit `terraform.tfvars`.**
 
-| Field | Runs on | Purpose |
-|-------|---------|---------|
-| `linode_token` | Your PC → Linode API | Creates the VM |
-| `root_password` | Linode | SSH login as root |
-| `domain` | Linode (Caddy TLS) | URL you open in browser |
-| `acme_email` | Let's Encrypt | TLS certificate notifications |
-| `bootstrap_repo_url` | Linode cloud-init | Clones this GitHub repo on the server |
-| `github_token` | Linode (agents) | Clone PMM, open PRs |
-| `github_copilot_token` | Linode (LiteLLM) | LLM for OpenHands |
-| `litellm_master_key` | Linode internal | LiteLLM ↔ OpenHands auth |
-| `openhands_api_key` | Linode internal | Orchestrator ↔ OpenHands |
-| `orchestrator_api_key` | You → Linode API | Your scripts calling `/api/tickets` |
-| `admin_cidrs` | Linode firewall | **Who can SSH** — not where the app runs |
+After apply:
 
----
-
-## After apply
-
-```powershell
-ssh root@<public_ip>
-tail -f /var/log/pmm-agentic-flow-bootstrap.log
-docker ps
-```
-
-Browser: `https://<your-sslip-hostname>/`
-
-Test ticket:
-
-```powershell
-$env:LOOP_BASE_URL = "https://203-0-113-50.sslip.io"
-$env:ORCHESTRATOR_API_KEY = "<same as orchestrator_api_key in tfvars>"
-bash ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Test"
+```text
+https://<terraform output public_ip>/
+Jira webhook: https://<ip>/hooks/jira
+Test API:     https://<ip>/loop/api/tickets  (header x-api-key)
 ```

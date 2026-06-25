@@ -1,31 +1,4 @@
 services:
-  litellm:
-    image: ghcr.io/berriai/litellm:main-v1.72.0-stable
-    container_name: loop-litellm
-    restart: unless-stopped
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
-    environment:
-      GITHUB_COPILOT_TOKEN: ${GITHUB_COPILOT_TOKEN}
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
-      COPILOT_EDITOR_VERSION: ${COPILOT_EDITOR_VERSION:-vscode/1.96.0}
-      COPILOT_INTEGRATION_ID: ${COPILOT_INTEGRATION_ID:-vscode-chat}
-    volumes:
-      - ./litellm_config.yaml:/app/config.yaml:ro
-    ports:
-      - "127.0.0.1:4000:4000"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=3)",
-        ]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 90s
-
   agent-canvas-init:
     image: alpine:3.21
     container_name: loop-agent-canvas-init
@@ -60,8 +33,8 @@ services:
       - agent-canvas-state:/home/openhands/.openhands
       - agent-canvas-projects:/projects
       - ../sandbox:/projects/pmm-agentic-flow/sandbox:ro
-    ports:
-      - "127.0.0.1:8000:8000"
+    expose:
+      - "8000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8000/"]
       interval: 30s
@@ -81,12 +54,13 @@ services:
       ORCHESTRATOR_PORT: ${ORCHESTRATOR_PORT:-8080}
       ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY}
       AGENT_CANVAS_BASE_URL: http://agent-canvas:8000
-      AGENT_CANVAS_PUBLIC_URL: https://${LOOP_DOMAIN}
+      AGENT_CANVAS_PUBLIC_URL: ${AGENT_CANVAS_PUBLIC_URL:-https://127.0.0.1}
       AGENT_CANVAS_API_KEY: ${AGENT_CANVAS_API_KEY}
-      OPENHANDS_BASE_URL: http://agent-canvas:8000
-      OPENHANDS_PUBLIC_URL: https://${LOOP_DOMAIN}
-      OPENHANDS_API_KEY: ${AGENT_CANVAS_API_KEY}
       GITHUB_TOKEN: ${GITHUB_TOKEN}
+      LINODE_TOKEN: ${LINODE_TOKEN:-}
+      WORKER_LINODE_REGION: ${WORKER_LINODE_REGION:-eu-central}
+      WORKER_LINODE_TYPE: ${WORKER_LINODE_TYPE:-g6-standard-8}
+      WORKER_ROOT_PASSWORD: ${WORKER_ROOT_PASSWORD:-}
       SANDBOX_TTL_HOURS: ${SANDBOX_TTL_HOURS:-72}
       MAX_AGENT_RETRIES: ${MAX_AGENT_RETRIES:-2}
       MAX_BUILD_RETRIES: ${MAX_BUILD_RETRIES:-5}
@@ -101,8 +75,8 @@ services:
       - ../config/loop.yaml:/config/loop.yaml:ro
       - ../config/jira-workflow.yaml:/config/jira-workflow.yaml:ro
       - loop-data:/data
-    ports:
-      - "127.0.0.1:${ORCHESTRATOR_PORT:-8080}:8080"
+    expose:
+      - "8080"
 
   caddy:
     image: caddy:2.9-alpine
@@ -111,9 +85,6 @@ services:
     depends_on:
       - agent-canvas
       - orchestrator
-    environment:
-      LOOP_DOMAIN: ${LOOP_DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL}
     ports:
       - "80:80"
       - "443:443"

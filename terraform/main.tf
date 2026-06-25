@@ -12,29 +12,20 @@ provider "linode" {
   token = var.linode_token
 }
 
-locals {
-  loop_domain = var.domain != "" ? var.domain : "${var.domain_prefix}.${replace(linode_instance.loop_host.ip_address, ".", "-")}.sslip.io"
-}
-
 resource "linode_instance" "loop_host" {
   label            = var.label
   region           = var.region
   type             = var.instance_type
   image            = "linode/ubuntu24.04"
   root_pass        = var.root_password
-  tags             = concat(["pmm-agentic-flow"], var.tags)
+  tags             = concat(["agentic-flow"], var.tags)
   watchdog_enabled = true
 
   metadata {
     user_data = base64encode(templatefile("${path.module}/cloud-init.yaml.tpl", {
-      domain                 = local.loop_domain
-      acme_email             = var.acme_email
       bootstrap_repo_url     = var.bootstrap_repo_url
       github_token           = var.github_token
-      github_copilot_token   = var.github_copilot_token
-      litellm_master_key     = var.litellm_master_key
-      litellm_model          = var.litellm_model
-      agent_canvas_api_key    = coalesce(var.agent_canvas_api_key, var.openhands_api_key)
+      agent_canvas_api_key   = coalesce(var.agent_canvas_api_key, var.openhands_api_key)
       agent_canvas_secret_key = var.agent_canvas_secret_key
       agent_canvas_version   = var.agent_canvas_version
       orchestrator_api_key   = var.orchestrator_api_key
@@ -42,6 +33,10 @@ resource "linode_instance" "loop_host" {
       jira_email             = var.jira_email
       jira_api_token         = var.jira_api_token
       jira_webhook_secret    = var.jira_webhook_secret
+      linode_token           = var.linode_token
+      worker_root_password   = var.worker_root_password
+      worker_linode_type     = var.worker_linode_type
+      worker_linode_region   = var.worker_linode_region
     }))
   }
 }
@@ -91,30 +86,26 @@ output "ssh_command" {
   value = "ssh root@${linode_instance.loop_host.ip_address}"
 }
 
-output "loop_domain" {
-  value       = local.loop_domain
-  description = "Public URL hostname (auto sslip.io or custom override)."
+output "app_url" {
+  value       = "https://${linode_instance.loop_host.ip_address}/"
+  description = "Agent Canvas UI (Caddy tls internal — accept browser cert warning)."
 }
 
-output "agent_canvas_url" {
-  value = "https://${local.loop_domain}/"
-}
-
-output "dns_hint" {
-  value = var.domain != "" ? "Custom domain — ensure A record: ${local.loop_domain} → ${linode_instance.loop_host.ip_address}" : "No DNS step — sslip.io resolves ${local.loop_domain} automatically."
-}
-
-output "openhands_url" {
-  value       = "https://${local.loop_domain}/"
-  description = "Deprecated alias for agent_canvas_url."
+output "jira_webhook_url" {
+  value = "https://${linode_instance.loop_host.ip_address}/hooks/jira"
 }
 
 output "next_steps" {
   value = <<-EOT
-    1. Wait ~5 min for cloud-init (Docker + git clone + compose up)
+    1. Wait ~5 min for cloud-init
     2. SSH: ssh root@${linode_instance.loop_host.ip_address}
-    3. Check: docker ps
-    4. Open: https://${local.loop_domain}/
+    3. Open: https://${linode_instance.loop_host.ip_address}/ (accept self-signed cert)
+    4. Jira webhook: https://${linode_instance.loop_host.ip_address}/hooks/jira
     5. API key: grep AGENT_CANVAS_API_KEY /etc/pmm-agentic-flow/env
   EOT
+}
+
+output "openhands_url" {
+  value       = "https://${linode_instance.loop_host.ip_address}/"
+  description = "Deprecated alias for app_url."
 }

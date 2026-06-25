@@ -134,6 +134,10 @@ export type Env = {
   jiraApiToken?: string;
   jiraWebhookSecret?: string;
   dataDir: string;
+  linodeToken?: string;
+  workerLinodeRegion: string;
+  workerLinodeType: string;
+  workerRootPassword?: string;
 };
 
 export function loadEnv(): Env {
@@ -174,6 +178,10 @@ export function loadEnv(): Env {
     jiraApiToken: process.env.JIRA_API_TOKEN,
     jiraWebhookSecret: process.env.JIRA_WEBHOOK_SECRET,
     dataDir: process.env.DATA_DIR ?? "/data",
+    linodeToken: process.env.LINODE_TOKEN,
+    workerLinodeRegion: process.env.WORKER_LINODE_REGION ?? "eu-central",
+    workerLinodeType: process.env.WORKER_LINODE_TYPE ?? "g6-standard-8",
+    workerRootPassword: process.env.WORKER_ROOT_PASSWORD,
   };
 }
 

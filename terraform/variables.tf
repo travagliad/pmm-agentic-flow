@@ -6,7 +6,7 @@ variable "linode_token" {
 
 variable "label" {
   type    = string
-  default = "pmm-agentic-flow"
+  default = "agentic-flow"
 }
 
 variable "region" {
@@ -16,8 +16,8 @@ variable "region" {
 
 variable "instance_type" {
   type        = string
-  default     = "g6-dedicated-8"
-  description = "8 vCPU / 16GB — OpenHands + nested sandboxes."
+  default     = "g6-standard-4"
+  description = "Control plane size (4GB). QA workers use worker_linode_type (8GB)."
 }
 
 variable "root_password" {
@@ -25,32 +25,16 @@ variable "root_password" {
   sensitive = true
 }
 
-variable "domain" {
-  type        = string
-  default     = ""
-  description = "Optional override for Caddy TLS hostname. Leave empty to auto-use {domain_prefix}.{ip-dashes}.sslip.io (no DNS setup)."
-}
-
-variable "domain_prefix" {
-  type        = string
-  default     = "pmmagents"
-  description = "Stable sslip.io label when domain is auto-computed (e.g. pmmagents.139-162-150-187.sslip.io)."
-}
-
-variable "acme_email" {
-  type = string
-}
-
 variable "admin_cidrs" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
-  description = "IPv4 sources allowed to SSH (port 22). Use 0.0.0.0/0 for POC."
+  description = "IPv4 sources allowed to SSH (port 22)."
 }
 
 variable "admin_cidrs_v6" {
   type        = list(string)
   default     = ["::/0"]
-  description = "IPv6 sources allowed to SSH. Use your-ip/128 or ::/0 for POC."
+  description = "IPv6 sources allowed to SSH."
 }
 
 variable "tags" {
@@ -60,7 +44,7 @@ variable "tags" {
 
 variable "bootstrap_repo_url" {
   type        = string
-  description = "Public or token-embed Git URL of this repo — cloud-init clones it on the Linode."
+  description = "Git URL of this repo — cloud-init clones it on the Linode."
 }
 
 variable "github_token" {
@@ -68,56 +52,34 @@ variable "github_token" {
   sensitive = true
 }
 
-variable "github_copilot_token" {
-  type      = string
-  sensitive = true
-  description = "Token for LiteLLM github/* models (often gh auth token or Copilot token)."
-}
-
-variable "litellm_master_key" {
-  type      = string
-  sensitive = true
-}
-
-variable "litellm_model" {
-  type    = string
-  default = "github/gpt-4.1"
-}
-
 variable "agent_canvas_api_key" {
   type        = string
   sensitive   = true
-  description = "LOCAL_BACKEND_API_KEY for Agent Canvas (--public mode on VM)."
+  description = "LOCAL_BACKEND_API_KEY — required when Agent Canvas is exposed on :443."
 }
 
 variable "agent_canvas_secret_key" {
   type        = string
   sensitive   = true
-  description = "OH_SECRET_KEY — protects stored settings and secrets in Agent Canvas."
+  description = "OH_SECRET_KEY — encrypts secrets stored by Agent Canvas."
 }
 
 variable "agent_canvas_version" {
-  type        = string
-  default     = "latest"
-  description = "ghcr.io/openhands/agent-canvas image tag."
+  type    = string
+  default = "latest"
 }
 
-# Deprecated alias — use agent_canvas_api_key in new tfvars.
 variable "openhands_api_key" {
   type      = string
   sensitive = true
   default   = ""
+  description = "Deprecated alias for agent_canvas_api_key."
 }
 
 variable "orchestrator_api_key" {
   type      = string
   sensitive = true
-}
-
-variable "openhands_version" {
-  type        = string
-  default     = ""
-  description = "Deprecated — ignored; use agent_canvas_version."
+  description = "Protects orchestrator API + Jira webhook (x-api-key header)."
 }
 
 variable "jira_base_url" {
@@ -140,4 +102,27 @@ variable "jira_webhook_secret" {
   type      = string
   sensitive = true
   default   = ""
+}
+
+variable "worker_root_password" {
+  type        = string
+  sensitive   = true
+  description = "Root password for ephemeral QA worker Linodes."
+}
+
+variable "worker_linode_type" {
+  type        = string
+  default     = "g6-standard-8"
+  description = "Linode plan for QA workers (8GB RAM)."
+}
+
+variable "worker_linode_region" {
+  type    = string
+  default = "eu-central"
+}
+
+variable "openhands_version" {
+  type    = string
+  default = ""
+  description = "Deprecated — ignored."
 }

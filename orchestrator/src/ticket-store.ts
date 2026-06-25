@@ -19,6 +19,12 @@ export type TicketRecord = {
   specPrUrl?: string;
   devPrUrl?: string;
   qaPrUrl?: string;
+  submodulesPr?: number;
+  fbServerImage?: string;
+  fbClientImage?: string;
+  workerLinodeId?: number;
+  workerIp?: string;
+  workerHostname?: string;
   pmmServerUrl?: string;
   accessUrls: ExposedUrl[];
   buildIteration: number;

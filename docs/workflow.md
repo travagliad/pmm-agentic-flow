@@ -29,7 +29,15 @@ implement task chunk → make build → fix → rebuild → push
 
 `buildIteration` is tracked in `/workspace/.loop/state.json`. Max retries: `MAX_BUILD_RETRIES` (default 5).
 
-PMM env (`pmm-framework.py`) is provisioned **once** at the start of `/opsx:apply` and stays up through **In Review** and **In QA**.
+PMM env (`pmm-framework.py` / FB Docker) is provisioned **when entering In QA**, not during dev. Dev uses local `make build` on the control plane.
+
+```text
+In Progress → local make build (no PMM FB)
+In QA       → orchestrator creates QA worker Linode with Jenkins FB images
+Ready for Merge → worker destroyed
+```
+
+See [sandbox-lifecycle.md](./sandbox-lifecycle.md).
 
 ---
 

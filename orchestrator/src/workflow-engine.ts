@@ -1,15 +1,18 @@
 import type { Env, JiraWorkflowConfig, LoopConfig } from "./config.js";
-import { JiraClient } from "./jira-client.js";
 import {
   buildApplyPrompt,
   buildArchivePrompt,
   buildFinalizePrompt,
   buildInReviewNotice,
   buildProposePrompt,
+  buildQaEnvironmentStartingNotice,
   buildQaPrompt,
   changeIdForTicket,
   type IssueContext,
 } from "./commands.js";
+import { FbResolver } from "./fb-resolver.js";
+import { JiraClient } from "./jira-client.js";
+import { LinodeWorkerClient } from "./linode-worker.js";
 import { OpenHandsClient, type ExposedUrl } from "./openhands-client.js";
 import { TicketStore, type TicketPhase, type TicketRecord } from "./ticket-store.js";
 
@@ -23,6 +26,8 @@ export class WorkflowEngine {
   private readonly store: TicketStore;
   private readonly openhands: OpenHandsClient;
   private readonly jira: JiraClient;
+  private readonly fb: FbResolver;
+  private readonly worker: LinodeWorkerClient;
 
   constructor(
     private readonly env: Env,
@@ -32,6 +37,8 @@ export class WorkflowEngine {
     this.store = new TicketStore(`${env.dataDir}/tickets`);
     this.openhands = new OpenHandsClient(env);
     this.jira = new JiraClient(env);
+    this.fb = new FbResolver(env);
+    this.worker = new LinodeWorkerClient(env);
   }
 
   listTickets(): TicketRecord[] {
@@ -80,17 +87,19 @@ export class WorkflowEngine {
         this.store.log(ticket, "Human gate: PO reviews spec PR.");
         break;
       case "in_progress":
+        await this.syncFbArtifacts(ticket, false);
         await this.dispatchCommand(ticket, buildApplyPrompt(ticket, this.loop, input.issue ?? {}));
-        await this.refreshAccessLinks(ticket, "in_progress");
+        await this.postConversationLink(ticket);
         break;
       case "in_review":
+        await this.syncFbArtifacts(ticket, false);
         await this.handleInReview(ticket);
         break;
       case "in_qa":
-        await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.loop, input.issue ?? {}));
-        await this.refreshAccessLinks(ticket, "in_qa");
+        await this.handleInQa(ticket, input.issue ?? {});
         break;
       case "ready_for_merge":
+        await this.teardownWorker(ticket);
         await this.dispatchCommand(ticket, buildFinalizePrompt(ticket, this.loop));
         await this.dispatchCommand(ticket, buildArchivePrompt(ticket));
         ticket.phase = "done";
@@ -99,6 +108,120 @@ export class WorkflowEngine {
     }
 
     return ticket;
+  }
+
+  async syncFbArtifacts(ticket: TicketRecord, required: boolean): Promise<void> {
+    try {
+      const fb = await this.fb.resolveForTicket(ticket.ticketKey);
+      if (!fb) {
+        if (required) {
+          throw new Error(
+            `No FB images found for ${ticket.ticketKey}. Open pmm-submodules PR and wait for JNKPercona comment.`,
+          );
+        }
+        this.store.log(ticket, "FB artifacts not found yet.");
+        return;
+      }
+      ticket.submodulesPr = fb.submodulesPr;
+      ticket.fbServerImage = fb.serverImage;
+      ticket.fbClientImage = fb.clientImage;
+      this.store.save(ticket);
+      this.store.log(
+        ticket,
+        `FB resolved from PR #${fb.submodulesPr}: ${fb.serverImage}`,
+      );
+      if (required) {
+        await this.jira.addComment(
+          ticket.ticketKey,
+          `FB build (pmm-submodules#${fb.submodulesPr}):\nServer: ${fb.serverImage}\nClient: ${fb.clientImage}`,
+        );
+      }
+    } catch (err) {
+      if (required) throw err;
+      this.store.log(ticket, `FB sync skipped: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  async handleInQa(ticket: TicketRecord, ctx: IssueContext): Promise<void> {
+    await this.jira.addComment(
+      ticket.ticketKey,
+      "QA environment: provisioning dedicated worker with Jenkins FB images (~10 min). Follow the agent conversation for progress.",
+    );
+
+    if (ticket.conversationId) {
+      await this.openhands.sendMessage(ticket.conversationId, buildQaEnvironmentStartingNotice(ticket));
+    } else {
+      await this.dispatchCommand(ticket, buildQaEnvironmentStartingNotice(ticket));
+    }
+
+    await this.syncFbArtifacts(ticket, true);
+
+    if (!ticket.fbServerImage || !ticket.fbClientImage) {
+      throw new Error("FB images required before QA provisioning");
+    }
+
+    await this.teardownWorker(ticket);
+
+    if (!this.worker.enabled) {
+      await this.jira.addComment(
+        ticket.ticketKey,
+        "LINODE_TOKEN not configured — cannot auto-provision QA worker. Set LINODE_TOKEN on control plane and re-transition to In QA.",
+      );
+      await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.loop, ctx));
+      return;
+    }
+
+    if (!this.env.workerRootPassword) {
+      throw new Error("WORKER_ROOT_PASSWORD required to create QA worker Linodes");
+    }
+
+    const worker = await this.worker.provisionQaWorker(ticket.ticketKey, {
+      submodulesPr: ticket.submodulesPr!,
+      serverImage: ticket.fbServerImage,
+      clientImage: ticket.fbClientImage,
+    });
+
+    ticket.workerLinodeId = worker.linodeId;
+    ticket.workerIp = worker.ip;
+    ticket.workerHostname = worker.hostname;
+    ticket.pmmServerUrl = worker.pmmUrl;
+    this.store.save(ticket);
+
+    await this.jira.addComment(
+      ticket.ticketKey,
+      `QA worker created (Linode ${worker.linodeId}). Waiting for PMM…\nIP: ${worker.ip}`,
+    );
+
+    const ready = await this.worker.waitUntilPmmReady(worker.ip);
+    if (!ready) {
+      await this.jira.addComment(
+        ticket.ticketKey,
+        `QA worker ${worker.ip} created but PMM did not respond on :8443 within timeout. Check Linode console.`,
+      );
+    }
+
+    await this.jira.addComment(
+      ticket.ticketKey,
+      this.workflow.jira.comments.test_instance.replace("{url}", ticket.pmmServerUrl ?? worker.pmmUrl),
+    );
+
+    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.loop, ctx));
+    await this.postAccessBundle(ticket, "in_qa");
+  }
+
+  async teardownWorker(ticket: TicketRecord): Promise<void> {
+    if (!ticket.workerLinodeId) return;
+    try {
+      await this.worker.destroy(ticket.workerLinodeId);
+      this.store.log(ticket, `Destroyed worker Linode ${ticket.workerLinodeId}`);
+      await this.jira.addComment(ticket.ticketKey, `QA worker destroyed (Linode ${ticket.workerLinodeId}).`);
+    } catch (err) {
+      this.store.log(ticket, `Worker destroy failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    ticket.workerLinodeId = undefined;
+    ticket.workerIp = undefined;
+    ticket.workerHostname = undefined;
+    this.store.save(ticket);
   }
 
   async dispatchCommand(ticket: TicketRecord, message: string): Promise<void> {
@@ -119,27 +242,18 @@ export class WorkflowEngine {
   }
 
   async handleInReview(ticket: TicketRecord): Promise<void> {
-    if (this.workflow.access_links.refresh_on_in_review) {
-      await this.refreshAccessLinks(ticket, "in_review");
-    }
     if (ticket.conversationId) {
       await this.openhands.sendMessage(ticket.conversationId, buildInReviewNotice(ticket));
       this.store.log(ticket, "Posted In Review notice to conversation.");
     }
+    await this.postAccessBundle(ticket, "in_review");
   }
 
   async refreshAccessLinks(ticket: TicketRecord, reason: string): Promise<void> {
     if (!ticket.conversationId) return;
-
-    // Allow sandbox time to expose URLs after env setup
-    await sleep(reason === "in_progress" ? 15_000 : 3000);
-
+    await sleep(3000);
     const urls = await this.openhands.getAccessUrls(ticket.conversationId);
     ticket.accessUrls = urls;
-
-    const pmm = urls.find((u) => /pmm|8443|443|preview|server/i.test(u.name + u.url));
-    if (pmm) ticket.pmmServerUrl = pmm.url;
-
     this.store.log(ticket, `Refreshed access links (${reason}): ${urls.length} URLs`);
     this.store.save(ticket);
     await this.postAccessBundle(ticket, reason);
@@ -165,6 +279,9 @@ export class WorkflowEngine {
     if (ticket.devPrUrl) {
       lines.push(comments.dev_pr.replace("{url}", ticket.devPrUrl));
     }
+    if (ticket.workerIp) {
+      lines.push(`QA worker IP: ${ticket.workerIp}`);
+    }
 
     for (const u of ticket.accessUrls) {
       if (/ssh/i.test(u.name)) {
@@ -175,16 +292,8 @@ export class WorkflowEngine {
       }
     }
 
-    if (this.workflow.access_links.include_ssh && !ticket.accessUrls.some((u) => /ssh/i.test(u.name))) {
-      lines.push(
-        comments.ssh_access.replace("{url}", "(see OpenHands sandbox SSH in conversation UI)").replace("{host}", "sandbox"),
-      );
-    }
-
     const body = comments.access_bundle
-      ? comments.access_bundle
-          .replace("{reason}", reason)
-          .replace("{links}", lines.join("\n"))
+      ? comments.access_bundle.replace("{reason}", reason).replace("{links}", lines.join("\n"))
       : lines.join("\n");
 
     await this.jira.addComment(ticket.ticketKey, body);

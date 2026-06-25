@@ -1,11 +1,10 @@
-{
-  email {$ACME_EMAIL}
-}
+# POC: HTTPS on bare IP (self-signed via tls internal).
+# When you have a real domain, replace :443 with {$PUBLIC_HOST} and remove tls internal.
 
-{$LOOP_DOMAIN} {
+:443 {
+  tls internal
   encode gzip
 
-  # Orchestrator (Jira webhooks + loop API) — must NOT steal Agent Canvas /api/*
   handle /hooks/* {
     reverse_proxy orchestrator:8080 {
       header_up Host {host}
@@ -24,7 +23,6 @@
     }
   }
 
-  # Agent Canvas (UI + backend on :8000) — includes WebSocket/SSE for live events
   handle {
     reverse_proxy agent-canvas:8000 {
       header_up Host {host}
@@ -37,4 +35,8 @@
       }
     }
   }
+}
+
+:80 {
+  redir https://{host}{uri} permanent
 }

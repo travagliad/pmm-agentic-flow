@@ -15,21 +15,18 @@ write_files:
   - path: /etc/pmm-agentic-flow/env
     permissions: "0600"
     content: |
-      LOOP_DOMAIN=${domain}
-      ACME_EMAIL=${acme_email}
-      AGENT_CANVAS_PUBLIC_URL=https://${domain}
+      AGENT_CANVAS_PUBLIC_URL=https://__PUBLIC_IP__
       AGENT_CANVAS_VERSION=${agent_canvas_version}
       AGENT_CANVAS_API_KEY=${agent_canvas_api_key}
       AGENT_CANVAS_SECRET_KEY=${agent_canvas_secret_key}
       AGENT_CANVAS_UID=1000
-      OPENHANDS_PUBLIC_URL=https://${domain}
-      OPENHANDS_API_KEY=${agent_canvas_api_key}
-      GITHUB_TOKEN=${github_token}
-      GITHUB_COPILOT_TOKEN=${github_copilot_token}
-      LITELLM_MASTER_KEY=${litellm_master_key}
-      LITELLM_MODEL=${litellm_model}
       ORCHESTRATOR_API_KEY=${orchestrator_api_key}
       ORCHESTRATOR_PORT=8080
+      GITHUB_TOKEN=${github_token}
+      LINODE_TOKEN=${linode_token}
+      WORKER_ROOT_PASSWORD=${worker_root_password}
+      WORKER_LINODE_TYPE=${worker_linode_type}
+      WORKER_LINODE_REGION=${worker_linode_region}
       SANDBOX_TTL_HOURS=72
       MAX_AGENT_RETRIES=2
       MAX_BUILD_RETRIES=5
@@ -37,8 +34,6 @@ write_files:
       JIRA_EMAIL=${jira_email}
       JIRA_API_TOKEN=${jira_api_token}
       JIRA_WEBHOOK_SECRET=${jira_webhook_secret}
-      COPILOT_EDITOR_VERSION=vscode/1.96.0
-      COPILOT_INTEGRATION_ID=vscode-chat
 
   - path: /opt/pmm-agentic-flow/bootstrap.sh
     permissions: "0755"
@@ -47,6 +42,9 @@ write_files:
       set -euo pipefail
       REPO="${bootstrap_repo_url}"
       DEST=/opt/pmm-agentic-flow/src
+      PUBLIC_IP="$(curl -fsSL https://ifconfig.me/ip 2>/dev/null || hostname -I | awk '{print $1}')"
+      echo "Public IP: $PUBLIC_IP"
+      sed -i "s|__PUBLIC_IP__|$PUBLIC_IP|g" /etc/pmm-agentic-flow/env
       echo "Cloning $REPO → $DEST"
       if [ ! -d "$DEST/.git" ]; then
         git clone "$REPO" "$DEST"
@@ -57,7 +55,7 @@ write_files:
       cd "$DEST/deploy"
       docker compose --env-file "$DEST/.env" pull
       docker compose --env-file "$DEST/.env" up -d --build
-      echo "Stack deployed. Open https://${domain}/ when DNS + TLS are ready."
+      echo "Stack deployed. Open https://$PUBLIC_IP/ (accept self-signed cert on first visit)."
 
 runcmd:
   - ufw allow OpenSSH
@@ -72,7 +70,7 @@ runcmd:
   - |
     cat >/etc/systemd/system/pmm-agentic-flow.service <<'UNIT'
     [Unit]
-    Description=PMM Agentic Flow stack
+    Description=Agentic flow stack
     After=docker.service
     Requires=docker.service
 

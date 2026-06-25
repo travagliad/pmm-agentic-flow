@@ -68,11 +68,11 @@ export function buildApplyPrompt(
     `Change ID: ${changeId}`,
     `Phase: IN_PROGRESS`,
     "",
-    "Environment (once per ticket — do NOT tear down):",
+    "Dev environment (local build — like a developer laptop):",
     "1. Clone /workspace/pmm and /workspace/pmm-qa if missing.",
-    "2. Run sandbox/setup-pmm-workspace.sh",
-    "3. Provision PMM via pmm-framework.py (read pmm-qa qa-integration docs).",
-    "4. Store PMM_SERVER_URL in /workspace/.loop/state.json",
+    "2. Run sandbox/setup-pmm-workspace.sh on the feature branch.",
+    "3. Do NOT run pmm-framework.py or start PMM Server FB — QA gets FB on In QA.",
+    "4. Optional: ensure pmm-submodules PR exists so Jenkins can publish FB images.",
     "",
     "Build loop (repeat until green or max retries):",
     `  implement tasks from openspec/changes/${changeId}/tasks.md`,
@@ -83,10 +83,29 @@ export function buildApplyPrompt(
     "Rules:",
     "- Edit pmm (or grafana) application code ONLY.",
     "- Do NOT write pmm-qa tests yet.",
-    "- Push to feature branch; update dev PR.",
-    "- When env is up, output JIRA_UPDATE with test_instance, ssh_access, dev_pr.",
+    "- Push to feature branch; open/update dev PR and pmm-submodules PR when ready.",
+    "- Output JIRA_UPDATE with dev_pr (and submodules PR if opened).",
+    "",
+    ticket.fbServerImage
+      ? `FB images already published (for later QA): ${ticket.fbServerImage}`
+      : "FB images: not ready yet — QA environment starts when ticket moves to In QA.",
     "",
     ctx.acceptanceCriteria ? `Acceptance criteria:\n${ctx.acceptanceCriteria}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildQaEnvironmentStartingNotice(ticket: TicketRecord): string {
+  return [
+    "Ticket moved to In QA.",
+    "",
+    "The orchestrator is provisioning a dedicated QA worker Linode with Jenkins FB images.",
+    "This takes ~10 minutes. You will receive the PMM URL in Jira when ready.",
+    "",
+    ticket.fbServerImage ? `FB server image: ${ticket.fbServerImage}` : "Resolving FB tags from pmm-submodules…",
+    "",
+    "When PMM is up, Playwright tests will start in this conversation automatically.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -102,7 +121,13 @@ export function buildQaPrompt(ticket: TicketRecord, config: LoopConfig, ctx: Iss
     `Change ID: ${ticket.changeId}`,
     `Phase: IN_QA`,
     "",
-    "Use existing PMM env from state.json — do NOT reprovision from scratch.",
+    ticket.pmmServerUrl
+      ? `PMM FB instance (orchestrator): ${ticket.pmmServerUrl}`
+      : "PMM URL pending — check Jira comment.",
+    ticket.fbServerImage ? `Server image: ${ticket.fbServerImage}` : "",
+    "",
+    "Use the FB PMM instance above — do NOT reprovision pmm-framework locally.",
+    "Clone/update pmm-qa in workspace if needed for test edits.",
     "",
     `Editable paths: ${config.qa.editable_paths.join(", ")}`,
     `Suite: ${config.qa.default_suite}`,
@@ -110,7 +135,7 @@ export function buildQaPrompt(ticket: TicketRecord, config: LoopConfig, ctx: Iss
     "",
     "Tasks:",
     "1. Map OpenSpec scenarios to Playwright tests in pmm-qa.",
-    "2. Run tests; collect trace/video/HTML report.",
+    "2. Run tests against PMM_SERVER_URL; collect trace/video/HTML report.",
     "3. Dev/QA loop if tests expose dev bugs: report in chat — do NOT patch pmm code.",
     "4. Output JIRA_UPDATE with test_instance and artifact paths.",
     "",
@@ -133,7 +158,7 @@ export function buildFinalizePrompt(ticket: TicketRecord, config: LoopConfig): s
     "2. Max 2 retries per flaky test; fail loudly otherwise.",
     "3. Open PR on percona/pmm-qa if tests were written.",
     "4. Run /opsx:archive for the change in pmm.",
-    "5. Signal sandbox teardown (orchestrator handles container stop).",
+    "5. QA worker Linode will be destroyed by the orchestrator.",
     "6. Output JIRA_UPDATE with qa_pr if applicable.",
     "",
     `QA suite: ${config.qa.default_suite}`,
@@ -144,12 +169,13 @@ export function buildInReviewNotice(ticket: TicketRecord): string {
   return [
     "Ticket moved to In Review.",
     "",
-    "The sandbox and PMM instance remain up for manual verification.",
-    "Review the dev PR and use the access links already posted to Jira.",
+    "Dev build was local (make build) — no QA PMM instance is running yet.",
+    "Review the dev PR and dev/submodules PRs.",
     "",
-    ticket.pmmServerUrl ? `PMM: ${ticket.pmmServerUrl}` : "",
     ticket.devPrUrl ? `Dev PR: ${ticket.devPrUrl}` : "",
+    ticket.fbServerImage ? `FB ready for QA: ${ticket.fbServerImage}` : "FB build: ensure pmm-submodules PR has JNKPercona comment.",
     "",
+    "When ready for QA testing, move the ticket to In QA — the FB environment will start automatically.",
     "To request agent changes, reply in this conversation or comment on the PR.",
   ]
     .filter(Boolean)
