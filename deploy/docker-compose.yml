@@ -13,9 +13,11 @@ services:
       - sh
       - -ec
       - |
-        mkdir -p /state /projects
+        mkdir -p /state/storage /state/workspaces /state/automation
+        mkdir -p /projects
         chown -R "$${CANVAS_UID}:$${CANVAS_UID}" /state /projects
         chmod -R u+rwX /state /projects
+        echo "agent-canvas volumes ready for uid $${CANVAS_UID}"
     restart: "no"
 
   agent-canvas:

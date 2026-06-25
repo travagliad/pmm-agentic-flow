@@ -16,8 +16,12 @@ echo "    Canvas: http://$IP:8000/"
 echo "    Webhook: http://$IP:8080/hooks/jira"
 
 echo ""
-echo "==> curl agent-canvas"
-curl -fsS --connect-timeout 5 "http://127.0.0.1:8000/" | head -c 120 || echo "FAIL"
+echo "==> ufw (host firewall)"
+ufw status 2>/dev/null | grep -E '8000|8080|Status' || true
+
+echo ""
+echo "==> curl agent-canvas (localhost — if FAIL, not a Linode firewall issue)"
+curl -fsS --connect-timeout 5 "http://127.0.0.1:8000/" | head -c 120 || echo "FAIL — check: docker logs agent-canvas"
 
 echo ""
 echo "==> curl orchestrator health"
