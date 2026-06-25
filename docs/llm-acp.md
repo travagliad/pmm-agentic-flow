@@ -22,22 +22,14 @@ github_copilot_token = "gho_..."   # optional; defaults to github_token
 
 `deploy/install-acp-clis.sh` always attempts Cursor CLI install. When `cursor_api_key` is set in tfvars, bootstrap **requires** `/usr/local/bin/agent` — Copilot does not satisfy that requirement. Copilot is optional only when Cursor is not configured.
 
-### Install failures (HTTP 403)
-
-`deploy/install-cursor-cli.sh` reads `DOWNLOAD_URL` from `https://cursor.com/install` (full lab version, e.g. `2026.06.24-00-45-58-9f61de7`). An older bug truncated the version hash (`2026.06.24-00-45-58`), which produced HTTP 403 — not Linode IP blocking.
-
-If a specific lab version is unpublished on the CDN, Cursor may return 403 until they publish the artifact (see [Cursor forum](https://forum.cursor.com/t/cursor-cli-cannot-be-installed-installer-tried-to-download-asset-that-403s/155827)).
-
-`deploy/install-cursor-cli.sh` retries 3×, validates the tarball, and fails bootstrap loudly on error.
-
-`deploy/install-cursor-cli.sh` extracts the full package under `/opt/cursor-agent/<version>/` and symlinks `/usr/local/bin/agent` to the bundled launcher (which needs `node` and `index.js` in the same directory — do not copy the wrapper alone).
+`deploy/install-cursor-cli.sh` runs the **official** installer (`curl https://cursor.com/install -fsS | bash`) and symlinks `agent` to `/usr/local/bin/agent` so the `agentcanvas` user finds it on PATH.
 
 Bootstrap **fails** if `cursor_api_key` is set and `agent --version` does not work.
 
 ## Canvas UI (manual)
 
 1. Open `https://<ngrok-domain>/` or `http://<public_ip>:8000/`
-2. **Manage Backends** → command `/usr/local/bin/agent`, args `acp`
+2. **Manage Backends** → command `agent`, args `acp` ([Cursor CLI](https://cursor.com/docs/cli/installation))
 
 ## Architecture: control plane vs runner chat
 

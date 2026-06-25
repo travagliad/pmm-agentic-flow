@@ -71,7 +71,7 @@ echo ""
 echo "[bootstrap-host] ACP CLI:"
 if [ -x /usr/local/bin/agent ] && /usr/local/bin/agent --version >/dev/null 2>&1; then
   echo "  Cursor: /usr/local/bin/agent ($(/usr/local/bin/agent --version 2>/dev/null))"
-  echo "  Configure manually in Canvas → Manage Backends: command /usr/local/bin/agent args acp"
+  echo "  Configure in Canvas → Manage Backends: command agent, args acp"
 elif [ -x /usr/local/bin/copilot ]; then
   echo "  Copilot: /usr/local/bin/copilot ($(/usr/local/bin/copilot --version 2>/dev/null | head -1 || echo installed))"
   echo "  Configure manually in Canvas → Manage Backends: command /usr/local/bin/copilot args acp"
