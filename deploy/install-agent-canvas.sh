@@ -32,7 +32,7 @@ fi
 echo "[install-agent-canvas] npm @openhands/agent-canvas@${AGENT_CANVAS_VERSION:-latest}"
 npm install -g "@openhands/agent-canvas@${AGENT_CANVAS_VERSION:-latest}"
 
-bash "$REPO_ROOT/deploy/install-cursor-cli.sh" || true
+bash "$REPO_ROOT/deploy/install-acp-clis.sh" "$ENV_FILE"
 
 mkdir -p \
   "$AGENT_HOME/.openhands/storage" \

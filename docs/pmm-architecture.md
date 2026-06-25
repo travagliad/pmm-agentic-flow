@@ -20,6 +20,8 @@ See [agent-canvas.md](./agent-canvas.md) and [deploy-linode.md](./deploy-linode.
 
 **Dev + QA:** one conversation per ticket on a **dedicated runner VM**. The VM is the sandbox — no Docker containers per chat.
 
+**Control plane vs runner chat:** the orchestrator dispatches workflow messages (`/opsx:propose`, `/opsx:apply`, `/loop:qa`, …) to the **runner** Agent Canvas (`http://<runner-ip>:8000`), not the control plane Canvas. Control plane Canvas is exposed via ngrok for manual UI access. A future target is a single control-plane chat with runners as sandbox-only hosts — see [llm-acp.md](./llm-acp.md#architecture-control-plane-vs-runner-chat).
+
 ## Repos involved
 
 | Repo | Role | Agent |

@@ -8,6 +8,7 @@ Type=simple
 User=agentcanvas
 Group=agentcanvas
 EnvironmentFile=-/etc/pmm-agentic-flow/runner.env
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=PORT=8000
 Environment=FILE_STORE=local
 Environment=LOCAL_STORAGE_PATH=/home/agentcanvas/.openhands/storage

@@ -21,6 +21,14 @@ if [ ! -d "$DEST/.git" ]; then
 fi
 
 bash "$DEST/deploy/install-control-plane.sh"
+
+bash "$DEST/deploy/install-acp-clis.sh" "$ENV_FILE"
+if ! [ -x /usr/local/bin/agent ] && ! [ -x /usr/local/bin/copilot ]; then
+  echo "[bootstrap-host] ERROR: no ACP CLI found at /usr/local/bin/agent or /usr/local/bin/copilot" >&2
+  echo "[bootstrap-host] ERROR: Cursor CDN may block Linode IPs (HTTP 403). Set github_copilot_token in terraform.tfvars for Copilot fallback." >&2
+  exit 1
+fi
+
 bash "$DEST/deploy/mount-data-volume.sh"
 
 install -m 0755 "$DEST/deploy/agent-canvas-start.sh" /opt/pmm-agentic-flow/agent-canvas-start.sh
