@@ -13,6 +13,7 @@ const infrastructureSchema = z.object({
     control_plane_type: z.string().default("g6-standard-4"),
     worker_type: z.string().default("g6-standard-8"),
     region: z.string().default("eu-central"),
+    chats_per_worker: z.number().int().positive().default(3),
   }),
 });
 
@@ -141,7 +142,12 @@ export type Env = {
   agentCanvasBaseUrl: string;
   agentCanvasPublicUrl: string;
   agentCanvasApiKey: string;
+  agentCanvasSecretKey?: string;
+  agentCanvasVersion: string;
   githubToken: string;
+  githubCopilotToken?: string;
+  cursorApiKey?: string;
+  bootstrapRepoUrl: string;
   sandboxTtlHours: number;
   maxAgentRetries: number;
   maxBuildRetries: number;
@@ -169,10 +175,15 @@ export function loadEnv(): Env {
   return {
     orchestratorPort: Number(process.env.ORCHESTRATOR_PORT ?? 8080),
     orchestratorApiKey: required("ORCHESTRATOR_API_KEY"),
-    agentCanvasBaseUrl: process.env.AGENT_CANVAS_BASE_URL ?? "http://agent-canvas:8000",
+    agentCanvasBaseUrl: process.env.AGENT_CANVAS_BASE_URL ?? "http://127.0.0.1:8000",
     agentCanvasPublicUrl: process.env.AGENT_CANVAS_PUBLIC_URL ?? "https://127.0.0.1",
     agentCanvasApiKey: apiKey,
+    agentCanvasSecretKey: process.env.AGENT_CANVAS_SECRET_KEY ?? process.env.OH_SECRET_KEY,
+    agentCanvasVersion: process.env.AGENT_CANVAS_VERSION ?? "latest",
     githubToken: required("GITHUB_TOKEN"),
+    githubCopilotToken: process.env.GITHUB_COPILOT_TOKEN,
+    cursorApiKey: process.env.CURSOR_API_KEY,
+    bootstrapRepoUrl: process.env.BOOTSTRAP_REPO_URL ?? "https://github.com/travagliad/pmm-agentic-flow.git",
     sandboxTtlHours: Number(process.env.SANDBOX_TTL_HOURS ?? 72),
     maxAgentRetries: Number(process.env.MAX_AGENT_RETRIES ?? 2),
     maxBuildRetries: Number(process.env.MAX_BUILD_RETRIES ?? 5),
@@ -207,4 +218,8 @@ export function loadJiraWorkflow(path: string): JiraWorkflowConfig {
 
 export function linodeWorkerSettings(stack: StackConfig) {
   return stack.infrastructure.linode;
+}
+
+export function chatsPerWorker(stack: StackConfig): number {
+  return stack.infrastructure.linode.chats_per_worker;
 }

@@ -6,6 +6,7 @@ infrastructure:
     control_plane_type: g6-standard-4
     worker_type: g6-standard-8
     region: eu-central
+    chats_per_worker: 3
 
 dev:
   repository: percona/pmm

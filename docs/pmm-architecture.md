@@ -8,15 +8,18 @@ Product and QA code stay in their own repositories. The loop coordinates agents,
 
 ```text
 terraform apply  →  cloud-init
-  ├── Agent Canvas   → http://<ip>:8000  (UI + agent-server + sandboxes)
-  └── Orchestrator   → http://<ip>:8080  (Jira webhooks + loop API)
+  ├── Agent Canvas   → http://<ip>:8000  (npm + systemd on host)
+  ├── Orchestrator   → http://<ip>:8080  (Node + systemd)
+  └── Docker Engine  → per-chat sandboxes only (not the stack itself)
 ```
 
 Secrets: `terraform/terraform.tfvars` on your PC → `/etc/pmm-agentic-flow/env` on the VM.
 
 See [agent-canvas.md](./agent-canvas.md) and [deploy-linode.md](./deploy-linode.md).
 
-Agent Canvas stays running after deploy. Each ticket gets **one long-lived conversation** and workspace until Ready for Merge.
+**Dev:** one conversation per ticket on the control plane; each turn runs in a Docker sandbox container.
+
+**QA:** worker VMs run npm Agent Canvas + shared PMM container; up to `chats_per_worker` tickets share a worker; each QA chat gets its own Docker sandbox.
 
 ## Repos involved
 

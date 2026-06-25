@@ -1,0 +1,15 @@
+[Unit]
+Description=PMM Agentic Flow orchestrator
+After=network-online.target agent-canvas.service
+Wants=agent-canvas.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/pmm-agentic-flow/env
+WorkingDirectory=/opt/pmm-agentic-flow/src/orchestrator
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

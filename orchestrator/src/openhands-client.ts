@@ -22,8 +22,24 @@ export type SandboxRecord = {
   exposed_urls?: ExposedUrl[];
 };
 
+export type CanvasEndpoint = {
+  baseUrl: string;
+  publicUrl: string;
+};
+
 export class OpenHandsClient {
-  constructor(private readonly env: Env) {}
+  constructor(
+    private readonly env: Env,
+    private readonly endpoint?: CanvasEndpoint,
+  ) {}
+
+  private get baseUrl(): string {
+    return this.endpoint?.baseUrl ?? this.env.agentCanvasBaseUrl;
+  }
+
+  private get publicUrl(): string {
+    return this.endpoint?.publicUrl ?? this.env.agentCanvasPublicUrl;
+  }
 
   private headers() {
     return {
@@ -45,7 +61,7 @@ export class OpenHandsClient {
       ...(params.branch ? { selected_branch: params.branch } : {}),
     };
 
-    const res = await fetch(`${this.env.agentCanvasBaseUrl}/api/v1/app-conversations`, {
+    const res = await fetch(`${this.baseUrl}/api/v1/app-conversations`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(body),
@@ -61,10 +77,9 @@ export class OpenHandsClient {
   async waitForConversation(startTaskId: string, timeoutMs = 600_000): Promise<string> {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {
-      const res = await fetch(
-        `${this.env.agentCanvasBaseUrl}/api/v1/app-conversations/start-tasks/${startTaskId}`,
-        { headers: this.headers() },
-      );
+      const res = await fetch(`${this.baseUrl}/api/v1/app-conversations/start-tasks/${startTaskId}`, {
+        headers: this.headers(),
+      });
       if (!res.ok) {
         throw new Error(`OpenHands poll failed (${res.status}): ${await res.text()}`);
       }
@@ -81,10 +96,9 @@ export class OpenHandsClient {
   }
 
   async getConversation(conversationId: string): Promise<AppConversation> {
-    const res = await fetch(
-      `${this.env.agentCanvasBaseUrl}/api/v1/app-conversations/${conversationId}`,
-      { headers: this.headers() },
-    );
+    const res = await fetch(`${this.baseUrl}/api/v1/app-conversations/${conversationId}`, {
+      headers: this.headers(),
+    });
     if (!res.ok) {
       throw new Error(`OpenHands get conversation failed (${res.status}): ${await res.text()}`);
     }
@@ -92,16 +106,13 @@ export class OpenHandsClient {
   }
 
   async sendMessage(conversationId: string, message: string): Promise<void> {
-    const res = await fetch(
-      `${this.env.agentCanvasBaseUrl}/api/v1/app-conversations/${conversationId}/actions/send-message`,
-      {
-        method: "POST",
-        headers: this.headers(),
-        body: JSON.stringify({
-          message: { content: [{ type: "text", text: message }] },
-        }),
-      },
-    );
+    const res = await fetch(`${this.baseUrl}/api/v1/app-conversations/${conversationId}/actions/send-message`, {
+      method: "POST",
+      headers: this.headers(),
+      body: JSON.stringify({
+        message: { content: [{ type: "text", text: message }] },
+      }),
+    });
     if (!res.ok) {
       throw new Error(`OpenHands send-message failed (${res.status}): ${await res.text()}`);
     }
@@ -113,10 +124,9 @@ export class OpenHandsClient {
 
     if (conv.sandbox_id) {
       try {
-        const res = await fetch(
-          `${this.env.agentCanvasBaseUrl}/api/v1/sandboxes/${conv.sandbox_id}`,
-          { headers: this.headers() },
-        );
+        const res = await fetch(`${this.baseUrl}/api/v1/sandboxes/${conv.sandbox_id}`, {
+          headers: this.headers(),
+        });
         if (res.ok) {
           const sandbox = (await res.json()) as SandboxRecord;
           for (const u of sandbox.exposed_urls ?? []) {
@@ -132,7 +142,7 @@ export class OpenHandsClient {
   }
 
   conversationPublicUrl(conversationId: string): string {
-    return `${this.env.agentCanvasPublicUrl}/conversations/${conversationId}`;
+    return `${this.publicUrl}/conversations/${conversationId}`;
   }
 }
 

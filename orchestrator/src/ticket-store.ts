@@ -16,6 +16,7 @@ export type TicketRecord = {
   changeId?: string;
   phase: TicketPhase;
   conversationId?: string;
+  qaConversationId?: string;
   specPrUrl?: string;
   devPrUrl?: string;
   qaPrUrl?: string;

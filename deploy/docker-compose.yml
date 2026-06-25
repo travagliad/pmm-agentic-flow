@@ -1,3 +1,5 @@
+# DEPRECATED — control plane uses npm + systemd (deploy/bootstrap-host.sh).
+# Kept for local experiments only. Production: see docs/deploy-linode.md
 name: agentic-flow
 
 # Linode VM only. Secrets: /etc/pmm-agentic-flow/env (written by Terraform cloud-init).

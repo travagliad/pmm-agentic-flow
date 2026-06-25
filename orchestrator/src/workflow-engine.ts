@@ -1,4 +1,5 @@
 import type { Env, JiraWorkflowConfig, StackConfig } from "./config.js";
+import { chatsPerWorker } from "./config.js";
 import {
   buildApplyPrompt,
   buildArchivePrompt,
@@ -13,8 +14,9 @@ import {
 import { FbResolver } from "./fb-resolver.js";
 import { JiraClient } from "./jira-client.js";
 import { LinodeWorkerClient } from "./linode-worker.js";
-import { OpenHandsClient, type ExposedUrl } from "./openhands-client.js";
+import { OpenHandsClient } from "./openhands-client.js";
 import { TicketStore, type TicketPhase, type TicketRecord } from "./ticket-store.js";
+import { WorkerStore } from "./worker-store.js";
 
 export type TransitionInput = {
   ticketKey: string;
@@ -24,10 +26,12 @@ export type TransitionInput = {
 
 export class WorkflowEngine {
   private readonly store: TicketStore;
+  private readonly workerStore: WorkerStore;
   private readonly openhands: OpenHandsClient;
   private readonly jira: JiraClient;
   private readonly fb: FbResolver;
   private readonly worker: LinodeWorkerClient;
+  private readonly maxChatsPerWorker: number;
 
   constructor(
     private readonly env: Env,
@@ -35,10 +39,12 @@ export class WorkflowEngine {
     private readonly workflow: JiraWorkflowConfig,
   ) {
     this.store = new TicketStore(`${env.dataDir}/tickets`);
+    this.workerStore = new WorkerStore(`${env.dataDir}/workers`);
     this.openhands = new OpenHandsClient(env);
     this.jira = new JiraClient(env);
     this.fb = new FbResolver(env);
     this.worker = new LinodeWorkerClient(env, stack);
+    this.maxChatsPerWorker = chatsPerWorker(stack);
   }
 
   listTickets(): TicketRecord[] {
@@ -145,13 +151,11 @@ export class WorkflowEngine {
   async handleInQa(ticket: TicketRecord, ctx: IssueContext): Promise<void> {
     await this.jira.addComment(
       ticket.ticketKey,
-      "QA environment: provisioning dedicated worker with Jenkins FB images (~10 min). Follow the agent conversation for progress.",
+      `QA environment: assigning worker (up to ${this.maxChatsPerWorker} chats per VM). Each chat runs in its own Docker sandbox.`,
     );
 
     if (ticket.conversationId) {
       await this.openhands.sendMessage(ticket.conversationId, buildQaEnvironmentStartingNotice(ticket));
-    } else {
-      await this.dispatchCommand(ticket, buildQaEnvironmentStartingNotice(ticket));
     }
 
     await this.syncFbArtifacts(ticket, true);
@@ -159,8 +163,6 @@ export class WorkflowEngine {
     if (!ticket.fbServerImage || !ticket.fbClientImage) {
       throw new Error("FB images required before QA provisioning");
     }
-
-    await this.teardownWorker(ticket);
 
     if (!this.worker.enabled) {
       await this.jira.addComment(
@@ -175,70 +177,135 @@ export class WorkflowEngine {
       throw new Error("WORKER_ROOT_PASSWORD required to create QA worker Linodes");
     }
 
-    const worker = await this.worker.provisionQaWorker(ticket.ticketKey, {
-      submodulesPr: ticket.submodulesPr!,
-      serverImage: ticket.fbServerImage,
-      clientImage: ticket.fbClientImage,
-    });
-
-    ticket.workerLinodeId = worker.linodeId;
-    ticket.workerIp = worker.ip;
-    ticket.workerHostname = worker.hostname;
-    ticket.pmmServerUrl = worker.pmmUrl;
+    const assigned = await this.acquireWorker(ticket);
+    ticket.workerLinodeId = assigned.linodeId;
+    ticket.workerIp = assigned.ip;
+    ticket.workerHostname = assigned.hostname;
+    ticket.pmmServerUrl = assigned.pmmUrl;
     this.store.save(ticket);
 
+    const pool = this.workerStore.get(assigned.linodeId);
+    const slot = pool?.ticketKeys.length ?? 1;
     await this.jira.addComment(
       ticket.ticketKey,
-      `QA worker created (Linode ${worker.linodeId}). Waiting for PMM…\nIP: ${worker.ip}`,
+      `QA worker ${assigned.ip} (Linode ${assigned.linodeId}, chat ${slot}/${this.maxChatsPerWorker}). Waiting for PMM and Canvas…`,
     );
 
-    const ready = await this.worker.waitUntilPmmReady(worker.ip);
-    if (!ready) {
+    const [pmmReady, canvasReady] = await Promise.all([
+      this.worker.waitUntilPmmReady(assigned.ip),
+      this.worker.waitUntilCanvasReady(assigned.ip),
+    ]);
+
+    if (!pmmReady) {
       await this.jira.addComment(
         ticket.ticketKey,
-        `QA worker ${worker.ip} created but PMM did not respond on :8443 within timeout. Check Linode console.`,
+        `QA worker ${assigned.ip}: PMM did not respond on :8443 within timeout.`,
+      );
+    }
+    if (!canvasReady) {
+      await this.jira.addComment(
+        ticket.ticketKey,
+        `QA worker ${assigned.ip}: Agent Canvas did not respond on :8000 within timeout.`,
       );
     }
 
     await this.jira.addComment(
       ticket.ticketKey,
-      this.workflow.jira.comments.test_instance.replace("{url}", ticket.pmmServerUrl ?? worker.pmmUrl),
+      this.workflow.jira.comments.test_instance.replace("{url}", ticket.pmmServerUrl ?? assigned.pmmUrl),
     );
 
-    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.stack, ctx));
+    const qaCanvas = new OpenHandsClient(this.env, {
+      baseUrl: assigned.canvasBaseUrl,
+      publicUrl: assigned.canvasPublicUrl,
+    });
+    await this.dispatchCommand(ticket, buildQaPrompt(ticket, this.stack, ctx), qaCanvas, "qaConversationId");
     await this.postAccessBundle(ticket, "in_qa");
+  }
+
+  private async acquireWorker(ticket: TicketRecord) {
+    const existing = this.workerStore.findWithCapacity(this.maxChatsPerWorker);
+    if (existing) {
+      this.workerStore.assignTicket(existing.linodeId, ticket.ticketKey, this.maxChatsPerWorker);
+      return {
+        linodeId: existing.linodeId,
+        ip: existing.ip,
+        hostname: existing.ip,
+        pmmUrl: existing.pmmUrl,
+        canvasBaseUrl: existing.canvasBaseUrl,
+        canvasPublicUrl: existing.canvasPublicUrl,
+      };
+    }
+
+    const worker = await this.worker.provisionQaWorker(ticket.ticketKey, {
+      submodulesPr: ticket.submodulesPr!,
+      serverImage: ticket.fbServerImage!,
+      clientImage: ticket.fbClientImage!,
+    });
+    this.workerStore.save(this.worker.toPoolRecord(worker, [ticket.ticketKey]));
+    return worker;
   }
 
   async teardownWorker(ticket: TicketRecord): Promise<void> {
     if (!ticket.workerLinodeId) return;
-    try {
-      await this.worker.destroy(ticket.workerLinodeId);
-      this.store.log(ticket, `Destroyed worker Linode ${ticket.workerLinodeId}`);
-      await this.jira.addComment(ticket.ticketKey, `QA worker destroyed (Linode ${ticket.workerLinodeId}).`);
-    } catch (err) {
-      this.store.log(ticket, `Worker destroy failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    const linodeId = ticket.workerLinodeId;
+    const released = this.workerStore.releaseTicket(linodeId, ticket.ticketKey);
     ticket.workerLinodeId = undefined;
     ticket.workerIp = undefined;
     ticket.workerHostname = undefined;
+    ticket.qaConversationId = undefined;
     this.store.save(ticket);
+
+    if (!released || released.ticketKeys.length > 0) {
+      this.store.log(ticket, `Released QA slot on worker ${linodeId} (${released?.ticketKeys.length ?? 0} chats remain)`);
+      return;
+    }
+
+    try {
+      await this.worker.destroy(linodeId);
+      this.workerStore.remove(linodeId);
+      this.store.log(ticket, `Destroyed empty worker Linode ${linodeId}`);
+      await this.jira.addComment(ticket.ticketKey, `QA worker destroyed (Linode ${linodeId}) — no active chats.`);
+    } catch (err) {
+      this.store.log(ticket, `Worker destroy failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
-  async dispatchCommand(ticket: TicketRecord, message: string): Promise<void> {
-    if (!ticket.conversationId) {
-      const start = await this.openhands.startConversation({
+  async dispatchCommand(
+    ticket: TicketRecord,
+    message: string,
+    client: OpenHandsClient = this.openhands,
+    conversationField: "conversationId" | "qaConversationId" = "conversationId",
+  ): Promise<void> {
+    const repo =
+      conversationField === "qaConversationId"
+        ? this.stack.qa.repository
+        : this.stack.dev.repository;
+    const branch =
+      conversationField === "qaConversationId"
+        ? this.stack.qa.default_branch
+        : this.stack.dev.default_branch;
+
+    const existingId = ticket[conversationField];
+    if (!existingId) {
+      const start = await client.startConversation({
         message,
-        repository: this.stack.dev.repository,
-        branch: this.stack.dev.default_branch,
+        repository: repo,
+        branch,
       });
-      ticket.conversationId = await this.openhands.waitForConversation(start.id);
-      this.store.log(ticket, `Started conversation ${ticket.conversationId}`);
+      const convId = await client.waitForConversation(start.id);
+      ticket[conversationField] = convId;
+      this.store.log(
+        ticket,
+        conversationField === "qaConversationId"
+          ? `Started QA conversation ${convId} on worker`
+          : `Started conversation ${convId}`,
+      );
     } else {
-      await this.openhands.sendMessage(ticket.conversationId, message);
-      this.store.log(ticket, `Sent message to conversation ${ticket.conversationId}`);
+      await client.sendMessage(existingId, message);
+      this.store.log(ticket, `Sent message to ${conversationField} ${existingId}`);
     }
     this.store.save(ticket);
-    await this.postConversationLink(ticket);
+    await this.postConversationLink(ticket, conversationField, client);
   }
 
   async handleInReview(ticket: TicketRecord): Promise<void> {
@@ -259,11 +326,17 @@ export class WorkflowEngine {
     await this.postAccessBundle(ticket, reason);
   }
 
-  private async postConversationLink(ticket: TicketRecord): Promise<void> {
-    if (!ticket.conversationId) return;
-    const url = this.openhands.conversationPublicUrl(ticket.conversationId);
+  private async postConversationLink(
+    ticket: TicketRecord,
+    field: "conversationId" | "qaConversationId" = "conversationId",
+    client: OpenHandsClient = this.openhands,
+  ): Promise<void> {
+    const conversationId = ticket[field];
+    if (!conversationId) return;
+    const url = client.conversationPublicUrl(conversationId);
+    const label = field === "qaConversationId" ? "QA conversation" : "Conversation";
     const tpl = this.workflow.jira.comments.conversation;
-    await this.jira.addComment(ticket.ticketKey, tpl.replace("{url}", url));
+    await this.jira.addComment(ticket.ticketKey, `${label}: ${tpl.replace("{url}", url)}`);
   }
 
   private async postAccessBundle(ticket: TicketRecord, reason: string): Promise<void> {
@@ -271,7 +344,19 @@ export class WorkflowEngine {
     const lines: string[] = [`*Sandbox access* (${reason})`, ""];
 
     if (ticket.conversationId) {
-      lines.push(comments.conversation.replace("{url}", this.openhands.conversationPublicUrl(ticket.conversationId)));
+      lines.push(
+        comments.conversation.replace(
+          "{url}",
+          this.openhands.conversationPublicUrl(ticket.conversationId),
+        ),
+      );
+    }
+    if (ticket.qaConversationId && ticket.workerIp) {
+      const qaCanvas = new OpenHandsClient(this.env, {
+        baseUrl: `http://${ticket.workerIp}:8000`,
+        publicUrl: `http://${ticket.workerIp}:8000`,
+      });
+      lines.push(`QA chat: ${qaCanvas.conversationPublicUrl(ticket.qaConversationId)}`);
     }
     if (ticket.pmmServerUrl) {
       lines.push(comments.test_instance.replace("{url}", ticket.pmmServerUrl));
