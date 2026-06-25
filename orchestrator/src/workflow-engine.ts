@@ -255,6 +255,7 @@ export class WorkflowEngine {
     if (!ticket || ticket.phase === "done" || ticket.phase === "ready_for_work") return;
     if (!RUNNER_PHASES.includes(ticket.phase)) return;
 
+    this.resumeLastAttempt.set(key, Date.now());
     this.resumeInFlight.add(key);
     void this.checkAndResume(ticket).finally(() => this.resumeInFlight.delete(key));
   }
@@ -265,8 +266,6 @@ export class WorkflowEngine {
 
     const statusName = this.statusForPhase(ticket.phase);
     if (!statusName) return;
-
-    this.resumeLastAttempt.set(ticket.ticketKey, Date.now());
     this.store.log(ticket, "Auto-resuming stalled ticket (runner missing or unreachable)");
     try {
       await this.handleTransition({

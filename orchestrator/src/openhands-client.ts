@@ -74,12 +74,10 @@ export class OpenHandsClient {
     return ["/usr/local/bin/copilot", "acp"];
   }
 
-  private conversationSecrets(): Record<string, { kind: string; value: string }> | undefined {
-    if (this.env.cursorApiKey) {
-      return { CURSOR_API_KEY: { kind: "StaticSecret", value: this.env.cursorApiKey } };
-    }
+  private acpEnv(): Record<string, string> | undefined {
+    if (this.env.cursorApiKey) return { CURSOR_API_KEY: this.env.cursorApiKey };
     const token = this.env.githubCopilotToken ?? this.env.githubToken;
-    if (token) return { GITHUB_TOKEN: { kind: "StaticSecret", value: token } };
+    if (token) return { GITHUB_TOKEN: token };
     return undefined;
   }
 
@@ -89,8 +87,8 @@ export class OpenHandsClient {
     branch?: string;
   }): Promise<StartTask> {
     const workingDir = this.workspaceDir(params.repository);
-    const secrets = this.conversationSecrets();
-    if (!this.useAcp()) {
+    const acpEnv = this.acpEnv();
+    if (!this.useAcp() || !acpEnv) {
       throw new Error(
         "CURSOR_API_KEY or GITHUB_COPILOT_TOKEN required — configure on control plane /etc/pmm-agentic-flow/env",
       );
@@ -100,9 +98,7 @@ export class OpenHandsClient {
       agent: {
         kind: "ACPAgent",
         acp_command: this.acpCommand(),
-        ...(this.env.cursorApiKey
-          ? { acp_env: { CURSOR_API_KEY: this.env.cursorApiKey } }
-          : {}),
+        acp_env: acpEnv,
       },
       workspace: {
         working_dir: workingDir,
@@ -112,7 +108,6 @@ export class OpenHandsClient {
         content: [{ text: params.message }],
         run: true,
       },
-      ...(secrets ? { secrets } : {}),
     };
 
     const res = await this.apiFetch(`${this.baseUrl}/api/conversations`, {
