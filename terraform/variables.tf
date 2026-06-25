@@ -76,17 +76,10 @@ variable "agent_canvas_version" {
   default = "latest"
 }
 
-variable "openhands_api_key" {
+variable "api_secret" {
   type        = string
   sensitive   = true
-  default     = ""
-  description = "Deprecated alias for agent_canvas_api_key."
-}
-
-variable "orchestrator_api_key" {
-  type        = string
-  sensitive   = true
-  description = "Protects orchestrator API + Jira webhook (x-api-key header)."
+  description = "Protects /orchestrator/* (x-api-key) and POST /hooks/jira (x-webhook-secret). Same value, two headers."
 }
 
 variable "jira_base_url" {
@@ -100,12 +93,6 @@ variable "jira_email" {
 }
 
 variable "jira_api_token" {
-  type      = string
-  sensitive = true
-  default   = ""
-}
-
-variable "jira_webhook_secret" {
   type      = string
   sensitive = true
   default   = ""
@@ -146,21 +133,4 @@ variable "worker_root_password" {
   type        = string
   sensitive   = true
   description = "Root password for ephemeral QA worker Linodes."
-}
-
-variable "worker_linode_type" {
-  type        = string
-  default     = "g6-standard-8"
-  description = "Linode plan for QA workers (8GB RAM)."
-}
-
-variable "worker_linode_region" {
-  type    = string
-  default = "eu-central"
-}
-
-variable "openhands_version" {
-  type        = string
-  default     = ""
-  description = "Deprecated — ignored."
 }

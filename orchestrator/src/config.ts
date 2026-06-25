@@ -172,9 +172,15 @@ export function loadEnv(): Env {
   const apiKey = process.env.AGENT_CANVAS_API_KEY ?? process.env.LOCAL_BACKEND_API_KEY;
   if (!apiKey) throw new Error("Missing AGENT_CANVAS_API_KEY");
 
+  const loopSecret =
+    process.env.JIRA_WEBHOOK_SECRET ?? process.env.ORCHESTRATOR_API_KEY;
+  if (!loopSecret) {
+    throw new Error("Missing JIRA_WEBHOOK_SECRET (terraform api_secret)");
+  }
+
   return {
     orchestratorPort: Number(process.env.ORCHESTRATOR_PORT ?? 8080),
-    orchestratorApiKey: required("ORCHESTRATOR_API_KEY"),
+    orchestratorApiKey: loopSecret,
     agentCanvasBaseUrl: process.env.AGENT_CANVAS_BASE_URL ?? "http://127.0.0.1:8000",
     agentCanvasPublicUrl: process.env.AGENT_CANVAS_PUBLIC_URL ?? "https://127.0.0.1",
     agentCanvasApiKey: apiKey,

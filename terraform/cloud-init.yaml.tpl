@@ -21,7 +21,7 @@ write_files:
       LOCAL_BACKEND_API_KEY=${agent_canvas_api_key}
       AGENT_CANVAS_SECRET_KEY=${agent_canvas_secret_key}
       OH_SECRET_KEY=${agent_canvas_secret_key}
-      ORCHESTRATOR_API_KEY=${orchestrator_api_key}
+      ORCHESTRATOR_API_KEY=${api_secret}
       ORCHESTRATOR_PORT=8080
       AGENT_CANVAS_BASE_URL=http://127.0.0.1:8000
       STACK_CONFIG_PATH=/opt/pmm-agentic-flow/src/config/stack.yaml
@@ -39,7 +39,7 @@ write_files:
       JIRA_BASE_URL=${jira_base_url}
       JIRA_EMAIL=${jira_email}
       JIRA_API_TOKEN=${jira_api_token}
-      JIRA_WEBHOOK_SECRET=${jira_webhook_secret}
+      JIRA_WEBHOOK_SECRET=${api_secret}
       CURSOR_API_KEY=${cursor_api_key}
       NGROK_AUTHTOKEN=${ngrok_authtoken}
       NGROK_DOMAIN=${ngrok_domain}

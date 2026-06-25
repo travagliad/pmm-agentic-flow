@@ -36,14 +36,15 @@ Open `http://<public_ip>:8000/` after cloud-init (~5 min).
 | [GETTING-STARTED.md](./docs/GETTING-STARTED.md) | Checklist — deploy on Linode |
 | [deploy-linode.md](./docs/deploy-linode.md) | Terraform, cloud-init, updates |
 | [llm-acp.md](./docs/llm-acp.md) | Cursor/Copilot CLIs via Terraform |
-| [architecture-faq.md](./docs/architecture-faq.md) | systemd vs tmux, Docker, orchestrator, ngrok, users |
+| [terraform-variables.md](./docs/terraform-variables.md) | All tfvars reviewed |
+| [architecture-faq.md](./docs/architecture-faq.md) | systemd, Docker, orchestrator, ngrok |
 
 ---
 
 ## After Linode is up
 
 ```bash
-export ORCHESTRATOR_API_KEY=<from terraform.tfvars>
+export JIRA_WEBHOOK_SECRET=<api_secret from terraform.tfvars>
 ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Test"
 ```
 

@@ -52,19 +52,16 @@ resource "linode_instance" "loop_host" {
       bootstrap_repo_url      = var.bootstrap_repo_url
       github_token            = var.github_token
       github_copilot_token    = var.github_copilot_token != "" ? var.github_copilot_token : var.github_token
-      agent_canvas_api_key    = coalesce(var.agent_canvas_api_key, var.openhands_api_key)
+      agent_canvas_api_key    = var.agent_canvas_api_key
       agent_canvas_secret_key = var.agent_canvas_secret_key
       agent_canvas_version    = var.agent_canvas_version
-      orchestrator_api_key    = var.orchestrator_api_key
+      api_secret              = var.api_secret
       jira_base_url           = var.jira_base_url
       jira_email              = var.jira_email
       jira_api_token          = var.jira_api_token
-      jira_webhook_secret     = var.jira_webhook_secret
       cursor_api_key          = var.cursor_api_key
       linode_token            = var.linode_token
       worker_root_password    = var.worker_root_password
-      worker_linode_type      = var.worker_linode_type
-      worker_linode_region    = var.worker_linode_region
       ngrok_authtoken         = var.ngrok_authtoken
       ngrok_domain            = var.ngrok_domain
       expose_ports_directly   = local.expose_ports_directly
@@ -149,9 +146,4 @@ output "jira_webhook_url" {
 
 output "next_steps" {
   value = local.next_steps
-}
-
-output "openhands_url" {
-  value       = local.app_url
-  description = "Alias for app_url."
 }

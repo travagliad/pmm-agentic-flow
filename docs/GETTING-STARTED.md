@@ -44,7 +44,7 @@ Use `terraform output jira_webhook_url` (with ngrok: `https://<domain>/hooks/jir
 ### E. Test without Jira
 
 ```powershell
-$env:ORCHESTRATOR_API_KEY = "<from tfvars>"
+$env:JIRA_WEBHOOK_SECRET = "<api_secret from tfvars>"
 $env:ORCHESTRATOR_BASE_URL = "http://<ip>:8080/orchestrator"
 bash ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Test"
 ```

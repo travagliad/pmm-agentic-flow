@@ -1,76 +1,61 @@
 # Secrets and API keys
 
+Full variable review: [terraform-variables.md](./terraform-variables.md).
+
 ## Generate random keys (PowerShell)
 
 ```powershell
 -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 32 | ForEach-Object {[char]$_})
 ```
 
-Run three times: `agent_canvas_api_key`, `agent_canvas_secret_key`, `orchestrator_api_key`.
+Generate **three** values for `terraform.tfvars`:
+
+| tfvars key | Purpose |
+|------------|---------|
+| `agent_canvas_api_key` | Canvas UI + orchestrator → Canvas API |
+| `agent_canvas_secret_key` | Encrypt Canvas settings on disk |
+| `api_secret` | Orchestrator REST (`x-api-key`) + Jira webhook (`x-webhook-secret`) |
 
 ## What each key does
 
 | Key | Who uses it | Purpose |
 |-----|-------------|---------|
-| **AGENT_CANVAS_API_KEY** | You (browser) + orchestrator | Protects the Agent Canvas UI/API when exposed on the internet. Enter once in the Canvas login/settings. Orchestrator sends it when creating conversations. |
-| **AGENT_CANVAS_SECRET_KEY** | Agent Canvas only | Encrypts secrets the Canvas stores on disk (provider tokens, settings). Not sent on every request — set once at deploy. |
-| **ORCHESTRATOR_API_KEY** | You (scripts) + Jira webhook | Protects `https://<ip>/orchestrator/*` and validates `x-api-key`. |
-| **GITHUB_TOKEN** | Orchestrator + agents | Clone repos, PRs. |
-| **github_copilot_token** (tfvars) | Copilot CLI in agent-canvas | ACP backend. |
-| **cursor_api_key** (tfvars) | Cursor CLI in agent-canvas | ACP backend. |
-| **LINODE_TOKEN** | Orchestrator | Ephemeral QA worker VMs. |
-| **JIRA_API_TOKEN** | Orchestrator | Post comments (conversation link, PMM URL) to tickets. |
+| **agent_canvas_api_key** | Browser, orchestrator | `LOCAL_BACKEND_API_KEY` — Canvas `--public` mode |
+| **agent_canvas_secret_key** | Agent Canvas | `OH_SECRET_KEY` — at-rest encryption |
+| **api_secret** | `simulate-transition.sh`, Jira | Same value: `x-api-key` on `/orchestrator/*`, `x-webhook-secret` on `/hooks/jira` |
+| **github_token** | Orchestrator, agents | Clone repos, PRs |
+| **github_copilot_token** | Copilot CLI | ACP (optional) |
+| **cursor_api_key** | Cursor CLI | ACP (optional) |
+| **linode_token** | Orchestrator | QA worker VMs |
+| **jira_api_token** | Orchestrator | Post comments to Jira |
 
 ## Public URL
 
-POC uses **bare Linode IP + HTTP**:
+With ngrok (recommended):
 
-```text
-http://<public_ip>:8000/
+```hcl
+ngrok_domain = "https://your-app.ngrok-free.app"
 ```
 
-Cloud-init sets `AGENT_CANVAS_PUBLIC_URL=http://<ip>:8000` automatically.
+Without ngrok: `terraform output app_url` → `http://<ip>:8000/`
 
-## Token links
-
-| What | Where |
-|------|-------|
-| Linode API token | https://cloud.linode.com/profile/tokens |
-| GitHub PAT | https://github.com/settings/tokens (`repo` scope) |
-| Jira API token | https://id.atlassian.com/manage-profile/security/api-tokens |
-
-## LLM providers
-
-| Goal | Path |
-|------|------|
-| Chat interativo no Canvas | Settings → LLM (Anthropic/OpenAI) **ou** ACP — ver [llm-acp.md](./llm-acp.md) |
-| **Cursor subscrição, sem ACP no UI** | **Cloud Agents REST API** — ver [cursor-api.md](./cursor-api.md) |
-| Verificar CLIs na VM | `docker exec agent-canvas ls -la /usr/local/bin/agent` |
-
-This stack does **not** run LiteLLM. Cursor API key does **not** go in Settings → LLM.
-
-## Team deployment (not POC)
-
-For a shared team setup, use **service accounts**, not personal tokens:
-
-| Service | POC (you) | Team |
-|---------|-----------|------|
-| GitHub | Your PAT | Machine user / GitHub App with org install |
-| Jira | Your API token | Bot/service account + scoped API token |
-| Linode | Your token | Project-scoped token or separate sub-account |
-| LLM | Your Copilot/Cursor | Org subscription + dedicated credentials |
-
-Personal tokens work for a solo POC; production needs identities that survive people leaving the team.
-
-## Example `terraform.tfvars`
-
-Copy from `terraform/terraform.tfvars.example`. **Never commit `terraform.tfvars`.**
-
-This is the **only** secrets file on your PC. Cloud-init writes `/etc/pmm-agentic-flow/env` on the VM.
-
-After apply:
+## After apply
 
 ```text
-http://<terraform output public_ip>:8000/
-Jira webhook: http://<ip>:8080/hooks/jira
+Canvas:  terraform output app_url
+Webhook: terraform output jira_webhook_url
 ```
+
+Simulate transition from your PC:
+
+```powershell
+$env:JIRA_WEBHOOK_SECRET = "<api_secret from tfvars>"
+$env:ORCHESTRATOR_BASE_URL = "https://your-app.ngrok-free.app/orchestrator"
+bash ./scripts/simulate-transition.sh PMM-123 "In Progress"
+```
+
+(`ORCHESTRATOR_API_KEY` works too — same value on the VM.)
+
+## Team deployment
+
+Use service accounts for GitHub/Jira/Linode in production — not personal PATs. See [architecture-faq.md](./architecture-faq.md).

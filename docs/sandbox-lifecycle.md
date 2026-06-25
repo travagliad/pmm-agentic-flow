@@ -41,7 +41,7 @@ Firewall (Linode Cloud + ufw): **TCP 8000** and **8080**.
 ## Test without Jira
 
 ```bash
-export ORCHESTRATOR_API_KEY=...
+export JIRA_WEBHOOK_SECRET=...   # same as terraform api_secret
 export ORCHESTRATOR_BASE_URL=http://<ip>:8080/orchestrator
 ./scripts/simulate-transition.sh PMM-15083 "In Progress"
 ```

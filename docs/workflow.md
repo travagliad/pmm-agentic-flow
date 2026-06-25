@@ -70,7 +70,7 @@ Orchestrator: `POST /api/tickets/:key/refresh-access` to force refresh.
 ## POC without Jira
 
 ```bash
-export ORCHESTRATOR_API_KEY=...
+export JIRA_WEBHOOK_SECRET=...   # terraform api_secret
 export LOOP_BASE_URL=https://loop.example.com
 
 ./scripts/simulate-transition.sh PMM-14915 "Ready for Refinement" "Add feature X"
@@ -90,7 +90,7 @@ Or type the same commands in the OpenHands chat.
 
 ```text
 POST https://loop.example.com/hooks/jira
-Header: x-webhook-secret: <JIRA_WEBHOOK_SECRET>
+Header: x-webhook-secret: <api_secret from terraform.tfvars>
 Body: Jira automation payload (issue key + status)
 ```
 
