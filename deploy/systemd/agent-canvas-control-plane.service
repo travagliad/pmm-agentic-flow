@@ -10,13 +10,14 @@ User=agentcanvas
 Group=agentcanvas
 EnvironmentFile=/etc/pmm-agentic-flow/env
 Environment=PORT=8000
+Environment=HOME=/home/agentcanvas
 Environment=FILE_STORE=local
 Environment=LOCAL_STORAGE_PATH=/home/agentcanvas/.openhands/storage
 Environment=AUTOMATION_WORKSPACE_BASE=/projects
 Environment=AUTOMATION_DB_URL=sqlite+aiosqlite:////home/agentcanvas/.openhands/automation/automations.db
 ExecStart=/opt/pmm-agentic-flow/agent-canvas-start.sh
 Restart=on-failure
-RestartSec=15
+RestartSec=10
 TimeoutStartSec=300
 
 [Install]

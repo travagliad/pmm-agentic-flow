@@ -24,6 +24,7 @@ bash "$DEST/deploy/install-control-plane.sh"
 bash "$DEST/deploy/mount-data-volume.sh"
 
 install -m 0755 "$DEST/deploy/agent-canvas-start.sh" /opt/pmm-agentic-flow/agent-canvas-start.sh
+install -m 0755 "$DEST/deploy/wait-for-http.sh" /opt/pmm-agentic-flow/wait-for-http.sh
 install -m 0644 "$DEST/deploy/systemd/agent-canvas-control-plane.service" /etc/systemd/system/agent-canvas.service
 
 cd "$DEST/orchestrator"
@@ -31,21 +32,27 @@ npm ci
 npm run build
 
 install -m 0644 "$DEST/deploy/nginx-ingress.conf" /etc/nginx/conf.d/agentic-flow.conf
-nginx -t
-systemctl enable nginx
-systemctl restart nginx
-
 install -m 0644 "$DEST/deploy/systemd/orchestrator.service" /etc/systemd/system/orchestrator.service
 
 if [ -n "${NGROK_DOMAIN:-}" ]; then
   install -m 0755 "$DEST/deploy/ngrok-tunnel.sh" /opt/pmm-agentic-flow/ngrok-tunnel.sh
   install -m 0644 "$DEST/deploy/systemd/ngrok.service" /etc/systemd/system/ngrok.service
-  systemctl enable ngrok
 fi
 
 systemctl daemon-reload
-systemctl enable agent-canvas orchestrator
-systemctl restart agent-canvas orchestrator
+systemctl enable nginx agent-canvas orchestrator
+[ -n "${NGROK_DOMAIN:-}" ] && systemctl enable ngrok
+
+systemctl restart agent-canvas
+/opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8000/ 300
+
+systemctl restart orchestrator
+/opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8080/orchestrator/health 60
+
+nginx -t
+systemctl restart nginx
+/opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8787/ 30
+
 [ -n "${NGROK_DOMAIN:-}" ] && systemctl restart ngrok
 
-echo "[bootstrap-host] Agent Canvas :8000 + orchestrator :8080 (nginx :8787, ngrok public URL)"
+echo "[bootstrap-host] ready: Canvas :8000 orchestrator :8080 nginx :8787"

@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
+# Env vars come from systemd EnvironmentFile (root reads, then drops to agentcanvas).
 set -euo pipefail
-set -a
-# shellcheck source=/dev/null
-source /etc/pmm-agentic-flow/env
-set +a
-exec "$(command -v agent-canvas)" --public --port 8000
+exec /usr/bin/agent-canvas --public --port 8000
