@@ -1,40 +1,30 @@
-# Jira — REST API only (no MCP)
+# Jira — REST API via curl (no MCP, no helper script)
 
-Percona does **not** authorize Atlassian Rovo MCP API tokens. Do not configure or use Jira MCP in Agent Canvas.
+Percona does **not** authorize Atlassian Rovo MCP. The agent uses **curl** with `JIRA_*` from the Canvas process environment (injected by systemd from `/etc/pmm-agentic-flow/env`).
 
-## Credentials on the control plane
-
-| File | Who can read |
-|------|----------------|
-| `/etc/pmm-agentic-flow/env` | root only (orchestrator, systemd) |
-| `/etc/pmm-agentic-flow/jira.env` | `agentcanvas` — JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN |
-
-Created by `deploy/install-jira-agent-env.sh` during bootstrap. Re-run after tfvars change:
+## Fetch issue (agent shell)
 
 ```bash
-sudo bash /opt/pmm-agentic-flow/src/deploy/install-jira-agent-env.sh
+curl -sS -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+  -H "Accept: application/json" \
+  "${JIRA_BASE_URL}/rest/api/3/issue/PMM-15167?fields=summary,description,status,issuetype"
 ```
 
-Terraform tfvars → full env on VM; Jira subset copied to `jira.env` for the agent shell.
+Save and parse ADF description with Python if needed (see agent conversation examples).
 
-## Fetch an issue (agent)
+## If JIRA_* is empty in shell
+
+The `agent-canvas` service loads env via systemd. Non-interactive subshells should still inherit it. If not:
 
 ```bash
-# As agentcanvas or any user in group agentcanvas — no sudo
-bash /opt/pmm-agentic-flow/jira-issue.sh PMM-15167
-bash /opt/pmm-agentic-flow/src/scripts/jira-issue.sh PMM-15167 summary,description,status
+set -a && source /etc/pmm-agentic-flow/agent-shell.env && set +a
 ```
 
-## Manual curl (root only — env is mode 600)
-
-```bash
-sudo bash -c 'source /etc/pmm-agentic-flow/env && AUTH=$(printf "%s:%s" "$JIRA_EMAIL" "$JIRA_API_TOKEN" | base64 -w0) && curl -sS -H "Authorization: Basic $AUTH" -H "Accept: application/json" "$JIRA_BASE_URL/rest/api/3/issue/PMM-15167"'
-```
+(`deploy/install-jira-agent-env.sh` writes `agent-shell.env` — run once as root after bootstrap.)
 
 ## What not to do
 
-- Do not scrape Jira in the browser.
-- Do not install Atlassian Rovo MCP (`mcp.atlassian.com`).
-- Webhook transitions still come from Jira Automation → orchestrator (`POST /hooks/jira`).
+- Do not use Jira MCP or browser scraping.
+- Do not use `sudo` — agent has no root password.
 
-Issue context for prompts is also injected by the orchestrator on transition; use the API when you need fresh fields mid-conversation.
+Webhook transitions still inject summary/description in orchestrator prompts.

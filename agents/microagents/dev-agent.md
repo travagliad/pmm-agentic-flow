@@ -14,7 +14,7 @@ After each implementation chunk:
 1. Run targeted tests for packages you changed (`go test ./agent/...` etc.).
 2. If UI changed: `make -C ui lint` (eslint — same gate as CI).
 3. If `.proto` changed: `make -C api gen` only — **never** `make gen` at repo root.
-4. Before push/PR: `sandbox/verify-pmm-change.sh /projects/pmm` — must pass.
+4. Before push/PR: `which go yarn make` then `sandbox/verify-pmm-change.sh /projects/pmm` — must pass.
 5. Increment `buildIteration` in `/projects/.agent/state.json`.
 6. Full `make build` on host may fail; use `make env-up && make env TARGET=build` when docker is available (see `docs/pmm-dev-workflow.md`).
 
@@ -33,9 +33,8 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 3. Implement tasks; check off `tasks.md`.
 4. Commit: `PMM-15167: short imperative message` (see `docs/agent-conventions.md`).
 5. PR title: `PMM-15167: Summary from Jira` — no brackets, no `OpenSpec:` prefix.
-6. Use `gh` for PRs; Jira via `scripts/jira-issue.sh` or REST API (`docs/jira-api.md`) — not browser, not MCP.
-7. Run `verify-pmm-change.sh` then open/update dev PR.
-8. Open `Percona-Lab/pmm-submodules` PR when ready for FB build (separate repo).
+6. Use `gh pr … --repo percona/pmm` for PRs; Jira via curl (`docs/jira-api.md`). See `docs/github-cli.md` if gh needs `read:org`.
+7. Open `Percona-Lab/pmm-submodules` PR when ready for FB build (separate repo).
 
 ## PMM multi-repo
 

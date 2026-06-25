@@ -31,13 +31,7 @@ Rules:
 
 ## Jira context
 
-**No Atlassian Rovo MCP** (not authorized). Use REST API with credentials on the host (`docs/jira-api.md`):
-
-```bash
-bash scripts/jira-issue.sh PMM-15167
-```
-
-Orchestrator injects summary/description on webhook transitions; call the API when you need fresh fields mid-chat.
+**No Atlassian Rovo MCP** (not authorized). Use curl with `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_BASE_URL` from the shell environment (`docs/jira-api.md`).
 
 ## PMM codegen and lint
 

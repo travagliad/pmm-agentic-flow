@@ -41,15 +41,18 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   export PMM_DIR=/projects/pmm PMM_QA_DIR=/projects/pmm-qa
   bash "$DEST/sandbox/setup-pmm-workspace.sh" || echo "[bootstrap-host] WARN: workspace clone failed — set GITHUB_TOKEN" >&2
   if [ -d /projects/pmm/ui ]; then
-    echo "[bootstrap-host] yarn install (ui) for make lint / build"
-    make -C /projects/pmm/ui setup 2>/dev/null || (cd /projects/pmm/ui && yarn install)
+    echo "[bootstrap-host] yarn install (ui) as agentcanvas"
+    if id agentcanvas >/dev/null 2>&1; then
+      runuser -u agentcanvas -- env PATH="/usr/local/bin:/usr/bin:/bin" bash -lc \
+        'cd /projects/pmm/ui && yarn install'
+    else
+      make -C /projects/pmm/ui setup 2>/dev/null || (cd /projects/pmm/ui && yarn install)
+    fi
   fi
   if id agentcanvas >/dev/null 2>&1; then
     chown -R agentcanvas:agentcanvas /projects/pmm /projects/pmm-qa /projects/.agent 2>/dev/null || true
   fi
 fi
-
-install -m 0755 "$DEST/scripts/jira-issue.sh" /opt/pmm-agentic-flow/jira-issue.sh
 
 if [ -n "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
   echo "$GITHUB_TOKEN" | gh auth login --with-token 2>/dev/null || true
@@ -89,6 +92,8 @@ systemctl restart nginx
 /opt/pmm-agentic-flow/wait-for-http.sh http://127.0.0.1:8787/ 30
 
 [ -n "${NGROK_DOMAIN:-}" ] && systemctl restart ngrok
+
+bash "$DEST/deploy/verify-agent-toolchain.sh"
 
 echo "[bootstrap-host] ready: Canvas :8000 orchestrator :8080 nginx :8787"
 echo ""

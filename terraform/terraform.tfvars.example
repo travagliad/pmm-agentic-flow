@@ -13,7 +13,7 @@ agent_canvas_version    = "latest"
 # /orchestrator/* (x-api-key) + Jira webhook /hooks/jira (x-webhook-secret)
 api_secret              = "loop-api-secret-change-me"
 
-github_token            = "ghp_..."
+github_token            = "ghp_..."   # classic PAT: repo + read:org (see docs/github-cli.md)
 github_copilot_token    = "gho_..."   # optional; defaults to github_token on VM
 cursor_api_key          = ""          # optional; Cursor ACP
 

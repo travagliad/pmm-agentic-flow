@@ -64,7 +64,7 @@ Max build iterations: 5 (then stop and report blockers).
 
 See `docs/agent-conventions.md`. Example: `PMM-15167: Real-Time Query Analytics for PostgreSQL` — no brackets, no `OpenSpec:` prefix.
 
-Use `gh` CLI (pre-authenticated on the host) for PRs. Jira: `scripts/jira-issue.sh <KEY>` or REST API (`docs/jira-api.md`) — no MCP.
+Use `gh` for PRs — always pass `--repo percona/pmm` (see `docs/github-cli.md`). Jira via curl (`docs/jira-api.md`).
 
 ## Access links for humans (In Progress + In Review)
 
