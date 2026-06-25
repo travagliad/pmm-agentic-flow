@@ -22,7 +22,7 @@ github_copilot_token = "gho_..."   # optional; defaults to github_token
 
 `deploy/install-acp-clis.sh` always attempts Cursor CLI install. When `cursor_api_key` is set in tfvars, bootstrap **requires** `/usr/local/bin/agent` — Copilot does not satisfy that requirement. Copilot is optional only when Cursor is not configured.
 
-`deploy/install-cursor-cli.sh` runs the **official** installer (`curl https://cursor.com/install -fsS | bash`) and symlinks `agent` to `/usr/local/bin/agent` so the `agentcanvas` user finds it on PATH.
+`deploy/install-cursor-cli.sh` runs the **official** installer as user `agentcanvas` (the same user as the Canvas systemd service), then symlinks `agent` to `/usr/local/bin/agent`.
 
 Bootstrap **fails** if `cursor_api_key` is set and `agent --version` does not work.
 
