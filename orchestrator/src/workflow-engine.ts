@@ -242,6 +242,12 @@ export class WorkflowEngine {
     const existingIp = ticket.runnerIp ?? ticket.workerIp;
     if (ticket.runnerLinodeId && existingIp) {
       ticket.runnerIp = existingIp;
+      const ready = await this.runner.waitUntilCanvasReady(existingIp, 120_000);
+      if (!ready) {
+        throw new Error(
+          `Sandbox runner ${existingIp} is not responding on :8000 — wait for bootstrap or recreate the Linode`,
+        );
+      }
       return;
     }
 

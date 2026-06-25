@@ -17,14 +17,14 @@ export type AppConversation = {
   exposed_urls?: ExposedUrl[];
 };
 
-export type SandboxRecord = {
-  id: string;
-  exposed_urls?: ExposedUrl[];
-};
-
 export type CanvasEndpoint = {
   baseUrl: string;
   publicUrl: string;
+};
+
+type ConversationInfo = {
+  id: string;
+  execution_status?: { status?: string };
 };
 
 export class OpenHandsClient {
@@ -41,11 +41,28 @@ export class OpenHandsClient {
     return this.endpoint?.publicUrl ?? this.env.agentCanvasPublicUrl;
   }
 
-  private headers() {
-    return {
-      Authorization: `Bearer ${this.env.agentCanvasApiKey}`,
-      "Content-Type": "application/json",
+  private headers(json = true): Record<string, string> {
+    const h: Record<string, string> = {
+      "X-Session-API-Key": this.env.agentCanvasApiKey,
     };
+    if (json) h["Content-Type"] = "application/json";
+    return h;
+  }
+
+  private workspaceDir(repository: string): string {
+    const name = repository.includes("/") ? repository.split("/").pop()! : repository;
+    return `/projects/${name}`;
+  }
+
+  private async apiFetch(url: string, init?: RequestInit): Promise<Response> {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      const cause =
+        err instanceof Error && err.cause instanceof Error ? ` — ${err.cause.message}` : "";
+      throw new Error(`OpenHands request failed: ${detail}${cause} (${url})`);
+    }
   }
 
   async startConversation(params: {
@@ -54,14 +71,16 @@ export class OpenHandsClient {
     branch?: string;
   }): Promise<StartTask> {
     const body = {
-      initial_message: {
-        content: [{ type: "text", text: params.message }],
+      workspace: {
+        working_dir: this.workspaceDir(params.repository),
+        kind: "LocalWorkspace",
       },
-      selected_repository: params.repository,
-      ...(params.branch ? { selected_branch: params.branch } : {}),
+      initial_message: {
+        content: [{ text: params.message }],
+      },
     };
 
-    const res = await fetch(`${this.baseUrl}/api/v1/app-conversations`, {
+    const res = await this.apiFetch(`${this.baseUrl}/api/conversations`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify(body),
@@ -71,46 +90,48 @@ export class OpenHandsClient {
       throw new Error(`OpenHands start failed (${res.status}): ${await res.text()}`);
     }
 
-    return (await res.json()) as StartTask;
+    const created = (await res.json()) as ConversationInfo;
+    await this.runConversation(created.id);
+
+    return {
+      id: created.id,
+      status: "READY",
+      app_conversation_id: created.id,
+    };
   }
 
-  async waitForConversation(startTaskId: string, timeoutMs = 600_000): Promise<string> {
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      const res = await fetch(`${this.baseUrl}/api/v1/app-conversations/start-tasks/${startTaskId}`, {
-        headers: this.headers(),
-      });
-      if (!res.ok) {
-        throw new Error(`OpenHands poll failed (${res.status}): ${await res.text()}`);
-      }
-      const task = (await res.json()) as StartTask;
-      if (task.status === "READY" && task.app_conversation_id) {
-        return task.app_conversation_id;
-      }
-      if (task.status === "ERROR") {
-        throw new Error(task.error ?? "OpenHands start task failed");
-      }
-      await sleep(5000);
-    }
-    throw new Error("Timed out waiting for OpenHands conversation");
-  }
-
-  async getConversation(conversationId: string): Promise<AppConversation> {
-    const res = await fetch(`${this.baseUrl}/api/v1/app-conversations/${conversationId}`, {
-      headers: this.headers(),
+  async waitForConversation(startTaskId: string, _timeoutMs = 600_000): Promise<string> {
+    const res = await this.apiFetch(`${this.baseUrl}/api/conversations/${startTaskId}`, {
+      headers: this.headers(false),
     });
     if (!res.ok) {
       throw new Error(`OpenHands get conversation failed (${res.status}): ${await res.text()}`);
     }
-    return (await res.json()) as AppConversation;
+    const conv = (await res.json()) as ConversationInfo;
+    return conv.id;
+  }
+
+  async getConversation(conversationId: string): Promise<AppConversation> {
+    const res = await this.apiFetch(`${this.baseUrl}/api/conversations/${conversationId}`, {
+      headers: this.headers(false),
+    });
+    if (!res.ok) {
+      throw new Error(`OpenHands get conversation failed (${res.status}): ${await res.text()}`);
+    }
+    const conv = (await res.json()) as ConversationInfo;
+    return {
+      id: conv.id,
+      status: conv.execution_status?.status ?? "unknown",
+    };
   }
 
   async sendMessage(conversationId: string, message: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/api/v1/app-conversations/${conversationId}/actions/send-message`, {
+    const res = await this.apiFetch(`${this.baseUrl}/api/conversations/${conversationId}/events`, {
       method: "POST",
       headers: this.headers(),
       body: JSON.stringify({
-        message: { content: [{ type: "text", text: message }] },
+        content: [{ text: message }],
+        run: true,
       }),
     });
     if (!res.ok) {
@@ -119,23 +140,25 @@ export class OpenHandsClient {
   }
 
   async getAccessUrls(conversationId: string): Promise<ExposedUrl[]> {
-    const conv = await this.getConversation(conversationId);
-    const urls = [...(conv.exposed_urls ?? [])];
+    const urls: ExposedUrl[] = [];
+    urls.push({
+      name: "conversation",
+      url: this.conversationPublicUrl(conversationId),
+    });
 
-    if (conv.sandbox_id) {
-      try {
-        const res = await fetch(`${this.baseUrl}/api/v1/sandboxes/${conv.sandbox_id}`, {
-          headers: this.headers(),
-        });
-        if (res.ok) {
-          const sandbox = (await res.json()) as SandboxRecord;
-          for (const u of sandbox.exposed_urls ?? []) {
-            if (!urls.some((x) => x.url === u.url)) urls.push(u);
-          }
+    try {
+      const res = await this.apiFetch(
+        `${this.baseUrl}/api/vscode/url?workspace_dir=${encodeURIComponent("/projects/pmm")}`,
+        { headers: this.headers(false) },
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { url?: string | null };
+        if (data.url) {
+          urls.push({ name: "VS Code", url: data.url });
         }
-      } catch {
-        // sandbox endpoint may differ by version — conversation URLs are enough
       }
+    } catch {
+      // optional
     }
 
     return urls;
@@ -144,8 +167,14 @@ export class OpenHandsClient {
   conversationPublicUrl(conversationId: string): string {
     return `${this.publicUrl}/conversations/${conversationId}`;
   }
-}
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  private async runConversation(conversationId: string): Promise<void> {
+    const res = await this.apiFetch(`${this.baseUrl}/api/conversations/${conversationId}/run`, {
+      method: "POST",
+      headers: this.headers(false),
+    });
+    if (!res.ok && res.status !== 409) {
+      throw new Error(`OpenHands run failed (${res.status}): ${await res.text()}`);
+    }
+  }
 }
