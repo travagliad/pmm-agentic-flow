@@ -35,6 +35,7 @@ systemctl restart nginx
 install -m 0644 "$DEST/deploy/systemd/orchestrator.service" /etc/systemd/system/orchestrator.service
 
 if [ -n "${NGROK_DOMAIN:-}" ]; then
+  install -m 0755 "$DEST/deploy/ngrok-tunnel.sh" /opt/pmm-agentic-flow/ngrok-tunnel.sh
   install -m 0644 "$DEST/deploy/systemd/ngrok.service" /etc/systemd/system/ngrok.service
   systemctl enable ngrok
 fi

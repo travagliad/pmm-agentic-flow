@@ -6,8 +6,7 @@ Requires=nginx.service
 [Service]
 Type=simple
 Environment=HOME=/root
-EnvironmentFile=/etc/pmm-agentic-flow/env
-ExecStart=/usr/bin/ngrok http 8787 --url=${NGROK_DOMAIN}
+ExecStart=/opt/pmm-agentic-flow/ngrok-tunnel.sh
 Restart=on-failure
 RestartSec=10
 
