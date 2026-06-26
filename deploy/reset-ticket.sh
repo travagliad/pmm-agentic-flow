@@ -66,16 +66,34 @@ github_cleanup() {
 
 github_cleanup || true
 
+reset_git_repo() {
+  local dir="$1"
+  shift
+  local delete_branches="$*"
+  if [ ! -d "$dir/.git" ]; then
+    echo "[reset-ticket] SKIP $dir (not a git repo)"
+    return 0
+  fi
+  echo "[reset-ticket] reset $dir → main (discard all local changes)"
+  runuser -u agentcanvas -- env DELETE_BRANCHES="$delete_branches" REPO_DIR="$dir" \
+    PATH="/usr/local/bin:/usr/bin:/bin" bash -lc '
+    set -e
+    cd "$REPO_DIR"
+    git fetch origin
+    git reset --hard
+    git clean -fd
+    git checkout -f main
+    git reset --hard origin/main
+    for b in $DELETE_BRANCHES; do
+      [ -n "$b" ] && git branch -D "$b" 2>/dev/null || true
+    done
+  '
+}
+
 echo "[reset-ticket] pmm workspace → main"
 if id agentcanvas >/dev/null 2>&1; then
-  runuser -u agentcanvas -- env PATH="/usr/local/bin:/usr/bin:/bin" bash -lc "
-    set -e
-    cd /projects/pmm
-    git fetch origin
-    git checkout main
-    git reset --hard origin/main
-    git branch -D '$BRANCH' '$LEGACY_BRANCH' 2>/dev/null || true
-  "
+  reset_git_repo /projects/pmm "$BRANCH" "$LEGACY_BRANCH"
+  reset_git_repo /projects/pmm-qa
 fi
 
 echo "[reset-ticket] pmm-framework teardown (if any)"
