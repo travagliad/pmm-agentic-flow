@@ -35,7 +35,24 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 5. PR title: `PMM-15167: Summary from Jira` — no brackets, no `OpenSpec:` prefix.
 6. **One PR:** on apply, `gh pr edit` the existing draft from propose — same branch, rewrite body for implementation. Do not open a second PR.
 7. Use `gh pr … --repo percona/pmm` for PRs; Jira via curl (`docs/jira-api.md`). See `docs/github-cli.md` if gh needs `read:org`.
-8. Open `Percona-Lab/pmm-submodules` PR when ready for FB build (separate repo).
+
+## Dev complete — FB build (mandatory last step)
+
+**Only after** all `tasks.md` items are done, `verify-pmm-change.sh` passes, and the percona/pmm PR is ready (`gh pr ready`):
+
+1. Clone/update `Percona-Lab/pmm-submodules` (separate repo).
+2. Point the **pmm** submodule at your feature branch (`agent/<ticket>-<slug>`) — use the commit SHA from your percona/pmm PR.
+3. Open a PR on `Percona-Lab/pmm-submodules` — title **must** include the ticket key (e.g. `PMM-15167: …`).
+4. Jenkins (`JNKPercona`) comments `Server docker:` / `Client docker:` on that PR — required before In QA.
+5. Post the submodules PR URL in chat. **Do not** report dev complete without this PR.
+
+```bash
+gh pr create --repo Percona-Lab/pmm-submodules \
+  --title "PMM-15167: Real-Time Query Analytics for PostgreSQL" \
+  --body "FB build; pmm branch agent/PMM-15167-..."
+```
+
+Skipping this blocks In QA (orchestrator cannot resolve FB images).
 
 ## PMM multi-repo
 

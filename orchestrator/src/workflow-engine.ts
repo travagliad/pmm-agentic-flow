@@ -54,6 +54,16 @@ export class WorkflowEngine {
     return this.store.get(ticketKey);
   }
 
+  /** Log async transition failures (webhook already returned 202). */
+  recordTransitionFailure(ticketKey: string, statusName: string, err: unknown): void {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[transition] ${ticketKey} (${statusName}) failed: ${message}`);
+    const ticket = this.store.get(ticketKey.toUpperCase());
+    if (ticket) {
+      this.store.log(ticket, `Transition failed (${statusName}): ${message}`);
+    }
+  }
+
   resolvePhase(statusName: string): TicketPhase | undefined {
     const s = this.workflow.jira.statuses;
     const normalized = statusName.trim().toLowerCase();

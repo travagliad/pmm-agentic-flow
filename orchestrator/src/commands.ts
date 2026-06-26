@@ -41,6 +41,25 @@ export function existingPrHint(ticket: TicketRecord): string {
   return `Reuse this PR (do NOT open another): ${url}`;
 }
 
+/** Mandatory last step of dev — opens Jenkins FB build for In QA. */
+export function buildFbSubmodulesInstructions(ticket: TicketRecord, featureBranch: string): string {
+  const submodulesRepo = "Percona-Lab/pmm-submodules";
+  const prTitle = prTitleForTicket(ticket.ticketKey);
+  return [
+    "FB build (mandatory LAST step before reporting dev complete):",
+    `1. percona/pmm PR must be ready (verify-pmm-change.sh passed, gh pr ready).`,
+    `2. Clone or update ${submodulesRepo} (separate repo from pmm).`,
+    `3. Point the pmm submodule at branch ${featureBranch} (commit from your percona/pmm PR).`,
+    `4. Open a PR on ${submodulesRepo} — title MUST include ${ticket.ticketKey} (e.g. ${prTitle}).`,
+    "5. Jenkins (JNKPercona) will comment Server docker / Client docker on that PR.",
+    "   In QA cannot start without this PR — do not skip or defer to the human.",
+    `6. Post the submodules PR URL in chat (and JIRA_UPDATE if you use it).`,
+    "",
+    "gh example:",
+    `  gh pr create --repo ${submodulesRepo} --title "${prTitle}" --body "FB for ${ticket.ticketKey}; pmm branch ${featureBranch}"`,
+  ].join("\n");
+}
+
 export function buildProposePrompt(
   ticket: TicketRecord,
   config: StackConfig,
@@ -114,7 +133,8 @@ export function buildApplyPrompt(
     "2. Run sandbox/setup-pmm-workspace.sh on the feature branch if needed.",
     "3. Do NOT run pmm-framework.py or start PMM Server FB — QA gets FB on In QA.",
     "4. gh CLI for PRs (always --repo percona/pmm); see docs/github-cli.md for token scopes.",
-    "5. Optional: open Percona-Lab/pmm-submodules PR so Jenkins can publish FB images.",
+    "",
+    buildFbSubmodulesInstructions(ticket, branch),
     "",
     "Build iterations (repeat until green or max retries):",
     `  implement tasks from openspec/changes/${changeId}/tasks.md`,
@@ -131,10 +151,11 @@ export function buildApplyPrompt(
     "- Do NOT write pmm-qa tests yet.",
     `- Push to ${branch}; update the existing PR (see above) — title: ${prTitle}`,
     "- Output JIRA_UPDATE with dev_pr (same URL as spec_pr if one PR).",
+    "- Only after FB submodules PR is opened: report dev phase complete.",
     "",
     ticket.fbServerImage
       ? `FB images already published (for later QA): ${ticket.fbServerImage}`
-      : "FB images: not ready yet — QA environment starts when ticket moves to In QA.",
+      : "FB images: open pmm-submodules PR (see FB build steps above) before finishing dev.",
     "",
     ctx.acceptanceCriteria ? `Acceptance criteria:\n${ctx.acceptanceCriteria}` : "",
   ]
@@ -195,16 +216,21 @@ export function buildFinalizePrompt(ticket: TicketRecord, config: StackConfig): 
 }
 
 export function buildInReviewNotice(ticket: TicketRecord): string {
+  const branch = ticket.changeId
+    ? featureBranchForTicket(ticket.ticketKey, ticket.changeId)
+    : `agent/${ticket.ticketKey}-*`;
   return [
     "Ticket moved to In Review.",
     "",
     "Dev build was local (make build) — no QA PMM instance is running yet.",
-    "Review the dev PR and dev/submodules PRs.",
+    "Review the dev PR and pmm-submodules FB PR.",
     "",
     ticket.devPrUrl ? `Dev PR: ${ticket.devPrUrl}` : "",
-    ticket.fbServerImage ? `FB ready for QA: ${ticket.fbServerImage}` : "FB build: ensure pmm-submodules PR has JNKPercona comment.",
+    ticket.fbServerImage
+      ? `FB ready for QA: ${ticket.fbServerImage}`
+      : `FB build: dev agent must open ${branch} on Percona-Lab/pmm-submodules (JNKPercona comment).`,
     "",
-    "When ready for QA testing, move the ticket to In QA — the FB environment will start automatically.",
+    "When FB images are published, move to In QA — runner + QA agent start automatically.",
     "To request agent changes, reply in this conversation or comment on the PR.",
   ]
     .filter(Boolean)

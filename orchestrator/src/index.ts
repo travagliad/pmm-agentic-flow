@@ -33,6 +33,26 @@ function extractDescription(desc: unknown): string | undefined {
   return undefined;
 }
 
+type TransitionRequest = {
+  ticketKey: string;
+  statusName: string;
+  issue?: {
+    summary?: string;
+    description?: string;
+    acceptanceCriteria?: string;
+  };
+};
+
+function scheduleTransition(engine: WorkflowEngine, input: TransitionRequest): void {
+  void engine
+    .handleTransition({
+      ticketKey: input.ticketKey.toUpperCase(),
+      statusName: input.statusName,
+      issue: input.issue,
+    })
+    .catch((err) => engine.recordTransitionFailure(input.ticketKey, input.statusName, err));
+}
+
 function main() {
   const env = loadEnv();
   const stack = loadStackConfig(env.stackConfigPath);
@@ -71,11 +91,12 @@ function main() {
     res.json(engine.getTicket(key) ?? ticket);
   });
 
-  api.post("/tickets/transition", auth, async (req, res) => {
+  api.post("/tickets/transition", auth, (req, res) => {
     try {
       const input = transitionSchema.parse(req.body);
-      const ticket = await engine.handleTransition({
-        ticketKey: input.ticketKey.toUpperCase(),
+      const ticketKey = input.ticketKey.toUpperCase();
+      scheduleTransition(engine, {
+        ticketKey,
         statusName: input.statusName,
         issue: {
           summary: input.summary,
@@ -83,7 +104,7 @@ function main() {
           acceptanceCriteria: input.acceptanceCriteria,
         },
       });
-      res.status(202).json(ticket);
+      res.status(202).json({ accepted: true, ticketKey, statusName: input.statusName });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
     }
@@ -129,7 +150,7 @@ function main() {
     res.type("html").send(chatBootstrapHtml(engine.getTicket(key) ?? ticket, env));
   });
 
-  app.post("/hooks/jira", async (req, res) => {
+  app.post("/hooks/jira", (req, res) => {
     if (env.jiraWebhookSecret) {
       const secret = req.header("x-webhook-secret");
       if (secret !== env.jiraWebhookSecret) {
@@ -147,15 +168,16 @@ function main() {
         return;
       }
 
-      const ticket = await engine.handleTransition({
-        ticketKey: key,
+      const ticketKey = key.toUpperCase();
+      scheduleTransition(engine, {
+        ticketKey,
         statusName,
         issue: {
           summary: payload.issue?.fields?.summary,
           description: extractDescription(payload.issue?.fields?.description),
         },
       });
-      res.status(202).json(ticket);
+      res.status(202).json({ accepted: true, ticketKey, statusName });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
     }

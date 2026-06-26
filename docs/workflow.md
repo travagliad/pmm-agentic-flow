@@ -12,7 +12,7 @@ Access links (Canvas URL, VS Code, SSH) are posted when entering **In Progress**
 |-------------|---------|-----|---------|
 | **Ready for Refinement** | `/opsx:propose <TICKET>` | Automation or chat | OpenSpec + **draft spec PR on `pmm`** |
 | **Ready for Work** | *(none)* | PO reviews spec PR | → **In Progress** |
-| **In Progress** | `/opsx:apply` | Automation | Env setup + **build loop** + dev PR; **access links → Jira** |
+| **In Progress** | `/opsx:apply` | Automation | Env setup + **build loop** + dev PR; **FB submodules PR last**; access links → Jira |
 | **In Review** | *(none)* | Engineer reviews PR | **Same sandbox links refreshed in Jira**; → In QA |
 | **In QA** | `/loop:qa` | Automation | Playwright in `pmm-qa`; instance link in Jira |
 | **Ready for Merge** | `/loop:finalize` | Automation | Teardown; merge; optional **`pmm-qa` PR**; archive |

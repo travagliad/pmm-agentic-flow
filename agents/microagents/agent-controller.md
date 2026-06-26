@@ -66,7 +66,15 @@ Max build iterations: 5 (then stop and report blockers).
 2. **Apply:** same branch, **same PR** — `gh pr edit` new title/body, push code, `gh pr ready` when done.
 3. Never open a second PR for the same ticket. Store URL in `specPrUrl` / `devPrUrl` in state.json.
 
-See `docs/agent-conventions.md`.
+## Dev complete — FB submodules PR (last step)
+
+After implementation is green on percona/pmm, **before** reporting done:
+
+1. Open PR on `Percona-Lab/pmm-submodules` pointing pmm submodule at your feature branch.
+2. Title must include ticket key — Jenkins publishes FB docker images (JNKPercona comment).
+3. Post submodules PR URL in chat.
+
+In QA depends on this PR. See `dev-agent.md`.
 
 ## PR titles
 

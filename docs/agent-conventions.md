@@ -31,6 +31,7 @@ Rules:
 |-------|-----|
 | Propose | Open **one** draft PR on `agent/<ticket>-<slug>`. Body: `## Summary` (feature), `## OpenSpec (draft)`, `## Test plan` (spec review checkboxes). |
 | Apply | **Same PR** — push implementation commits, `gh pr edit` to replace body with implementation summary + changes + test plan. Remove spec-only wording. |
+| Dev complete | **Last step:** open `Percona-Lab/pmm-submodules` PR (pmm submodule → feature branch). Jenkins FB images required for In QA. |
 | Ready | `gh pr ready` after `make -C ui lint` / verify script passes. |
 
 Forbidden: title/body starting with "OpenSpec proposal for…"; footer "Made with Cursor"; opening a second PR on apply.
