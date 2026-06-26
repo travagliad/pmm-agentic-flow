@@ -30,8 +30,8 @@ clone_repo "$PMM_REPO" "$PMM_DIR" "$PMM_BRANCH"
 echo "==> Cloning PMM QA repo"
 clone_repo "$PMM_QA_REPO" "$PMM_QA_DIR" "main"
 
-if [ -n "$TICKET_KEY" ] && [ -n "$CHANGE_ID" ]; then
-  FEATURE_BRANCH="agent/${TICKET_KEY}-${CHANGE_ID#${TICKET_KEY}-}"
+if [ -n "$TICKET_KEY" ]; then
+  FEATURE_BRANCH="$(echo "$TICKET_KEY" | tr '[:lower:]' '[:upper:]')"
   git -C "$PMM_DIR" checkout -B "$FEATURE_BRANCH"
 fi
 

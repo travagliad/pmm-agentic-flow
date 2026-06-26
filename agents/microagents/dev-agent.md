@@ -29,7 +29,7 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 ## Workflow
 
 1. Read `openspec/changes/<change-id>/` (proposal, specs, design, tasks).
-2. Branch `agent/<ticket>-<slug>`.
+2. Branch `PMM-XXXX` (ticket key only — no `/`, required for pmm-submodules FB).
 3. Implement tasks; check off `tasks.md`.
 4. Commit: `PMM-15167: short imperative message` (see `docs/agent-conventions.md`).
 5. PR title: `PMM-15167: Summary from Jira` — no brackets, no `OpenSpec:` prefix.
@@ -41,7 +41,7 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 **Only after** all `tasks.md` items are done, `verify-pmm-change.sh` passes, and the percona/pmm PR is ready (`gh pr ready`):
 
 1. Clone/update `Percona-Lab/pmm-submodules` (separate repo).
-2. Point the **pmm** submodule at your feature branch (`agent/<ticket>-<slug>`) — use the commit SHA from your percona/pmm PR.
+2. Point the **pmm** submodule at branch `PMM-XXXX` (same name as percona/pmm feature branch).
 3. Open a PR on `Percona-Lab/pmm-submodules` — title **must** include the ticket key (e.g. `PMM-15167: …`).
 4. Jenkins (`JNKPercona`) comments `Server docker:` / `Client docker:` on that PR — required before In QA.
 5. Post the submodules PR URL in chat. **Do not** report dev complete without this PR.
@@ -49,7 +49,7 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 ```bash
 gh pr create --repo Percona-Lab/pmm-submodules \
   --title "PMM-15167: Real-Time Query Analytics for PostgreSQL" \
-  --body "FB build; pmm branch agent/PMM-15167-..."
+  --body "FB build; pmm branch PMM-15167"
 ```
 
 Skipping this blocks In QA (orchestrator cannot resolve FB images).

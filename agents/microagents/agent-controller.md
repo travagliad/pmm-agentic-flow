@@ -70,7 +70,7 @@ Max build iterations: 5 (then stop and report blockers).
 
 After implementation is green on percona/pmm, **before** reporting done:
 
-1. Open PR on `Percona-Lab/pmm-submodules` pointing pmm submodule at your feature branch.
+1. Open PR on `Percona-Lab/pmm-submodules` with pmm submodule on branch `PMM-XXXX` (ticket key).
 2. Title must include ticket key — Jenkins publishes FB docker images (JNKPercona comment).
 3. Post submodules PR URL in chat.
 

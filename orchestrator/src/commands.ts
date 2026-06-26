@@ -29,15 +29,14 @@ export function prTitleForTicket(ticketKey: string, summary?: string): string {
   return `${ticketKey.toUpperCase()}: ${cleaned || "Change"}`;
 }
 
-export function featureBranchForTicket(ticketKey: string, changeId: string): string {
-  const slug = changeId.replace(new RegExp(`^${ticketKey}-`, "i"), "");
-  return `agent/${ticketKey.toUpperCase()}-${slug}`;
+export function featureBranchForTicket(ticketKey: string, _changeId?: string): string {
+  return ticketKey.toUpperCase();
 }
 
 /** One PR per ticket — propose opens draft; apply updates the same PR with code. */
 export function existingPrHint(ticket: TicketRecord): string {
   const url = ticket.devPrUrl ?? ticket.specPrUrl;
-  if (!url) return "No PR in ticket store yet — if propose ran, find it: gh pr list --repo percona/pmm --head agent/";
+  if (!url) return `No PR in ticket store yet — find it: gh pr list --repo percona/pmm --head ${ticket.ticketKey.toUpperCase()}`;
   return `Reuse this PR (do NOT open another): ${url}`;
 }
 
@@ -49,7 +48,7 @@ export function buildFbSubmodulesInstructions(ticket: TicketRecord, featureBranc
     "FB build (mandatory LAST step before reporting dev complete):",
     `1. percona/pmm PR must be ready (verify-pmm-change.sh passed, gh pr ready).`,
     `2. Clone or update ${submodulesRepo} (separate repo from pmm).`,
-    `3. Point the pmm submodule at branch ${featureBranch} (commit from your percona/pmm PR).`,
+    `3. Point the pmm submodule at branch ${featureBranch} (ticket key only — no slashes).`,
     `4. Open a PR on ${submodulesRepo} — title MUST include ${ticket.ticketKey} (e.g. ${prTitle}).`,
     "5. Jenkins (JNKPercona) will comment Server docker / Client docker on that PR.",
     "   In QA cannot start without this PR — do not skip or defer to the human.",
@@ -218,7 +217,7 @@ export function buildFinalizePrompt(ticket: TicketRecord, config: StackConfig): 
 export function buildInReviewNotice(ticket: TicketRecord): string {
   const branch = ticket.changeId
     ? featureBranchForTicket(ticket.ticketKey, ticket.changeId)
-    : `agent/${ticket.ticketKey}-*`;
+    : ticket.ticketKey.toUpperCase();
   return [
     "Ticket moved to In Review.",
     "",
