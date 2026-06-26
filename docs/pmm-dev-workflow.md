@@ -51,3 +51,7 @@ make env TARGET=build
 ```
 
 If devcontainer is not available, run targeted `go test` on changed packages and `make -C ui build` when UI changed.
+
+## Functional smoke (before In Review)
+
+See `docs/dev-smoke-test.md`. Dev agent must provision real DBs with `pmm-framework.py`, run a narrow functional smoke, then `--destroy`. Do not skip managed DB tests on the control plane.

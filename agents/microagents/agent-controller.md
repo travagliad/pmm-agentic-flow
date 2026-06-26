@@ -42,9 +42,9 @@ export TICKET_KEY=<ticket> CHANGE_ID=<changeId>
 /opt/pmm-agentic-flow/src/sandbox/setup-pmm-workspace.sh
 ```
 
-**In Progress:** local `make build` on the control plane — **do not** run `pmm-framework.py` or start FB PMM.
+**In Progress:** local build + **functional smoke** via `pmm-framework.py` on the control plane (provision DBs → test → teardown). See `docs/dev-smoke-test.md`.
 
-**In QA:** orchestrator provisions a sandbox runner; use FB images + `pmm-framework.py` there (see `qa-agent.md`).
+**In QA:** orchestrator provisions a sandbox runner; use FB images + full Playwright (see `qa-agent.md`).
 
 ## Build iterations (In Progress)
 
@@ -68,7 +68,7 @@ Max build iterations: 5 (then stop and report blockers).
 
 ## Dev complete — FB submodules PR (last step)
 
-After implementation is green on percona/pmm, **before** reporting done:
+After smoke test passes on percona/pmm, **before** reporting done:
 
 1. Open PR on `Percona-Lab/pmm-submodules` with pmm submodule on branch `PMM-XXXX` (ticket key).
 2. Title must include ticket key — Jenkins publishes FB docker images (JNKPercona comment).
@@ -90,7 +90,7 @@ After dev build is green, output a **JIRA_UPDATE** block:
 JIRA_UPDATE:
   spec_pr: <url or empty>
   dev_pr: <url>
-  test_instance: <empty in In Progress — FB starts in In QA>
+  test_instance: <smoke test summary — pmm-framework DBs used>
   ssh_access: <empty until In QA runner>
   conversation: <OpenHands conversation URL>
 ```

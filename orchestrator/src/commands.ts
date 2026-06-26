@@ -40,6 +40,20 @@ export function existingPrHint(ticket: TicketRecord): string {
   return `Reuse this PR (do NOT open another): ${url}`;
 }
 
+/** Mandatory smoke test before In Review — provision real DBs, test, teardown. */
+export function buildDevSmokeTestInstructions(): string {
+  return [
+    "Functional smoke test (mandatory BEFORE In Review / dev complete):",
+    "1. Read docs/dev-smoke-test.md and qa-integration/pmm_qa/scripts/database_options.py.",
+    "2. Provision DBs matching ticket scope (not only PostgreSQL — pick what the change needs).",
+    "   Example: sandbox/dev-smoke-test.sh --database ps=17",
+    "3. Run smoke: agent registration, API curl, UI build/spot-check — prove the feature works.",
+    "4. sandbox/dev-smoke-test.sh --destroy (or pmm-framework.py --destroy) — always teardown.",
+    "Forbidden: 'Managed DB tests — skip (no test instance on control plane)'. Docker is available.",
+    "5. Record smoke steps + results in PR Test plan.",
+    "",
+  ].join("\n");
+}
 /** Mandatory last step of dev — opens Jenkins FB build for In QA. */
 export function buildFbSubmodulesInstructions(ticket: TicketRecord, featureBranch: string): string {
   const submodulesRepo = "Percona-Lab/pmm-submodules";
@@ -127,12 +141,12 @@ export function buildApplyPrompt(
     "   Remove 'OpenSpec proposal' / spec-only wording. Do not open a second PR.",
     "4. When lint/tests pass: gh pr ready --repo percona/pmm <number>",
     "",
-    "Dev environment (local build on control plane — like a developer laptop):",
+    "Dev environment (control plane):",
     "1. Work in /projects/pmm and /projects/pmm-qa.",
     "2. Run sandbox/setup-pmm-workspace.sh on the feature branch if needed.",
-    "3. Do NOT run pmm-framework.py or start PMM Server FB — QA gets FB on In QA.",
-    "4. gh CLI for PRs (always --repo percona/pmm); see docs/github-cli.md for token scopes.",
+    "3. gh CLI for PRs (always --repo percona/pmm); see docs/github-cli.md for token scopes.",
     "",
+    buildDevSmokeTestInstructions(),
     buildFbSubmodulesInstructions(ticket, branch),
     "",
     "Build iterations (repeat until green or max retries):",
@@ -150,7 +164,7 @@ export function buildApplyPrompt(
     "- Do NOT write pmm-qa tests yet.",
     `- Push to ${branch}; update the existing PR (see above) — title: ${prTitle}`,
     "- Output JIRA_UPDATE with dev_pr (same URL as spec_pr if one PR).",
-    "- Only after FB submodules PR is opened: report dev phase complete.",
+    "- Only after smoke test + FB submodules PR: report dev phase complete.",
     "",
     ticket.fbServerImage
       ? `FB images already published (for later QA): ${ticket.fbServerImage}`

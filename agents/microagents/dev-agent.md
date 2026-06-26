@@ -20,6 +20,26 @@ After each implementation chunk:
 
 Do not report success after partial `go test` if UI lint was not run for UI changes.
 
+## Functional smoke test (mandatory before In Review)
+
+After build/lint pass and **before** FB submodules PR or reporting dev complete:
+
+1. Read `docs/dev-smoke-test.md` and `pmm-qa/qa-integration/pmm_qa/scripts/database_options.py`.
+2. Provision databases matching the ticket (PostgreSQL, MySQL, MongoDB, etc. — not only PG).
+3. Run smoke tests that prove the feature works (agent add, API, UI spot-check).
+4. **Teardown** — `sandbox/dev-smoke-test.sh --destroy` or `pmm-framework.py --destroy`.
+
+```bash
+# Example: PostgreSQL RTA ticket
+bash /opt/pmm-agentic-flow/src/sandbox/dev-smoke-test.sh --database ps=17
+# … smoke tests …
+bash /opt/pmm-agentic-flow/src/sandbox/dev-smoke-test.sh --destroy
+```
+
+**Forbidden:** skipping with "Managed DB tests — skip (no PostgreSQL test instance on control plane)". Docker is on the control plane — create what you need, then destroy it.
+
+Record smoke steps and results in the PR Test plan.
+
 ## Code generation rules
 
 - Never run `make gen` at repository root.
@@ -38,7 +58,7 @@ Do not report success after partial `go test` if UI lint was not run for UI chan
 
 ## Dev complete — FB build (mandatory last step)
 
-**Only after** all `tasks.md` items are done, `verify-pmm-change.sh` passes, and the percona/pmm PR is ready (`gh pr ready`):
+**Only after** smoke test passes, `verify-pmm-change.sh` passes, and the percona/pmm PR is ready (`gh pr ready`):
 
 1. Clone/update `Percona-Lab/pmm-submodules` (separate repo).
 2. Point the **pmm** submodule at branch `PMM-XXXX` (same name as percona/pmm feature branch).

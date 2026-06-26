@@ -35,6 +35,7 @@ Rules:
 |-------|-----|
 | Propose | Open **one** draft PR on branch `PMM-XXXX`. Body: `## Summary` (feature), `## OpenSpec (draft)`, `## Test plan` (spec review checkboxes). |
 | Apply | **Same PR** — push implementation commits, `gh pr edit` to replace body with implementation summary + changes + test plan. Remove spec-only wording. |
+| Smoke | `pmm-framework.py` on control plane — provision scope DBs, functional smoke, teardown (`docs/dev-smoke-test.md`). |
 | Dev complete | **Last step:** open `Percona-Lab/pmm-submodules` PR (pmm submodule → branch `PMM-XXXX`). Jenkins FB images required for In QA. |
 | Ready | `gh pr ready` after `make -C ui lint` / verify script passes. |
 
@@ -63,4 +64,10 @@ From the Linode, always use paths from the repo root — not from `orchestrator/
 ```bash
 cd /opt/pmm-agentic-flow/src && git pull
 sudo bash deploy/reload-orchestrator.sh
+```
+
+Full ticket reset (state, branches, PRs, runner):
+
+```bash
+sudo bash deploy/reset-ticket.sh PMM-15167
 ```
